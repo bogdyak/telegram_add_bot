@@ -25,6 +25,10 @@ const Profile = new mongoose.Schema({
         type: String,
         default: ""
     },
+    pendingWallets: {
+        type: Object,
+        default: []
+    },
     settings: settings_model.schema.obj
 })
 

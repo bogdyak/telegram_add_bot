@@ -2,125 +2,411 @@
  * @env
  */
 const env = require('./env')
+const fs  = require('fs')
 
 /**
  * @node_modules
  */
 const Telegraf = require('telegraf')
+const session  = require('telegraf/session')
+const socket   = require('socket.io-client')
+const cote     = require('cote')
+
 
 /**
  * @connection
  */
 const bot = new Telegraf(env.BOT_TOKEN)
+const minter_requester = new cote.Requester({ name:"server-minter-requester", key:"minter-service" })
+const address_requester = new cote.Requester({ name:"server-address-requester", key:"address-generate-tool" })
+const transaction_responder = new cote.Responder({ name:"server-tx-responder", key:"transactions" })
+const pin_requester = new cote.Requester({ name:"server-pin-requester", key:"pin-service" })
+const pin_responder = new cote.Responder({ name:"server-pin-responder", key:"pin-service" })
+
 
 /**
  * @custom_modules_apis
  */
-const db_api     = require('./api/mongo')
-const markup_api = require('./api/markups')
-const messages   = require('./api/messages')
+const db_api        = require('./api/mongo')
+const markup_api    = require('./api/markups')
+const messages      = require('./api/messages')
+const channel_api   = require('./api/channelApi')
+const actions       = require('./api/actions')
+const lang_logo     = require('./api/language-logo')
+const temp_tx_store = require('./mongoose/EcommTempTxStore')
 
 
-bot.use(Telegraf.log())
+bot.use(session())
+bot.use((ctx, next) => {
+    ctx.telegram.getMe().then(data => {
+        ctx.state.me = data.username
+    })
+    return next()
+})
 
 bot.start(async (ctx) => {
     try {
         await db_api.new_user(ctx.message.from)
-        return ctx.reply('Hello, my name is David Advertise. Thank you for choosing me.', markup_api.homePage)
+        ctx.reply('Hello, my name is David Advertise. Thank you for choosing me.', markup_api.homePage)
     }
     catch (e) {
         console.log(e)
 
-        if (e.message == "user_exists")
-            return ctx.reply('Welcome back', markup_api.homePage)
+        try {
+            if (e.message == "user_exists")
+                ctx.reply('Welcome back', markup_api.homePage)
+    
+            else 
+                ctx.reply('Oops, there is error accured. Please report to @b_sizov')
+        }
+        catch (e) {
 
-        else 
-            return ctx.reply('Oops, there is error accured. Please report to @b_sizov')
+        }
     }
 })
+
+/**
+ * @add_channel is message that user call when want to add new channels. Replying with request to enter name
+ */
+bot.action('add_channel', (ctx) => actions.add_channel(ctx))
+bot.action('back_to_settings', (ctx) => actions.back_to_settings(ctx))
+bot.action('back_to_profile', (ctx) => actions.back_to_profile(ctx))
+bot.action('channels', (ctx) => actions.channels(ctx))
+bot.action('edit_channel', (ctx) => actions.edit_channel(ctx))
+
+bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, (ctx) => {
+    const data    = ctx.update.callback_query.data.split("_")
+    const from_id = ctx.update.callback_query.from.id
+
+    if (data[0]+data[1] == 'editchannel') {
+        const channelName = data[2]   
+        messages.EditChannel(from_id, channelName)
+        .then(data => {
+            ctx.editMessageText(data.text, {
+                reply_markup: data.reply_markup,
+                parse_mode: "HTML"
+            })
+        })
+        .catch(e => {
+            ctx.editMessageText(e.text)
+        })
+    }
+
+    else if (data[0]+data[2]+data[3] == "editchannellanguage") {
+        const channelName = data[1]
+        messages.EditChannelLanguage(from_id, channelName)
+        .then(data => {
+            ctx.editMessageText(data.text, {
+                reply_markup: data.reply_markup,
+                parse_mode: "HTML"
+            })
+        })
+        .catch(e => {
+            console.log(e)
+            ctx.editMessageText(e.text)
+        })
+    }
+
+    else if (data[0]+data[1]+data[2] == "setchannellanguage") {
+        const langToSet   = data[3]
+        const channelName = data[4]
+        
+        db_api.setChannelConfiguation(from_id, channelName, 'channel_language', langToSet)
+        .then(() => {
+            return messages.EditChannel(from_id, channelName)
+        })
+        .then(data => {
+            ctx.editMessageText("✅ Channel language successfully changed, going back ...")
+            setTimeout(() => {
+                ctx.editMessageText(data.text, {
+                    reply_markup: data.reply_markup,
+                    parse_mode: "HTML"
+                })
+            }, 4000)
+        })
+        .catch(e => {
+            console.log(e)
+            ctx.editMessageText(e.text)
+        })
+    }
+
+    else if (data[0]+data[2]+data[3] == 'editpostoptions') {
+        const channelName = data[1]
+
+        messages.EditChannelPostOptions(from_id, channelName)
+        .then(data => {
+            ctx.editMessageText(data.text, {
+                reply_markup: data.reply_markup,
+                parse_mode: "HTML"
+            })
+        })
+        .catch(e => {
+            console.log(e)
+            ctx.editMessageText(e.text)
+        })
+    }
+
+    else if (data[0]+data[1]+data[2] == "addpostoption") {
+        const channelName = data[3]
+
+        messages.AddNewChannelOption(from_id, channelName)
+        .then(data => {
+            ctx.session.context = `set_post_option`
+            ctx.session.context_1 = channelName
+            ctx.editMessageText(data.text, {
+                reply_markup: data.reply_markup,
+                parse_mode: "HTML"
+            })
+        })
+        .catch(e => {
+            console.log(e)
+            ctx.editMessageText(e.text)
+        })
+    }
+
+    else if (data[0]+data[1]+data[2] == "chooseadvoption") {
+        const channelName = data[6]
+
+        messages.BuyPostOptionSelected(from_id, channelName)
+        .then(_data => {
+            ctx.session.context = {
+                type: 'option_selected',
+                duration: data[3] + "_" + data[4],
+                amount: data[5],
+                profile: ctx.session.context
+            }
+            ctx.editMessageText(_data.text, {
+                parse_mode: "HTML"
+            })
+        })
+        .catch(e => {
+            console.log(e)
+            ctx.editMessageText(e.text)
+        })
+    }
+})
+
 
 /**
  * @description
  * This is handler for buttons clicks
  */
 bot.on('message', async (ctx) => {
-    const text = ctx.message.text
+    let text = ctx.message.text
 
-    console.log(ctx)
-
-    if (typeof text != 'undefined' && text) {
+    if (!ctx.session.context && typeof text != 'undefined' && text) {
         switch (text) {
             /**
              * @Profile is details of user account, wallet, name, channels, etc.
              */
-            case 'Profile': messages.Profile(ctx.message.from.id)
+            case '👨‍💻 Profile': messages.Profile(ctx.message.from.id)
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
+                .catch(e => {
+
+                })
+                break
+
+            case '📢 Buy Add': messages.BuyAdvertising(ctx.message.from.id)
+                .then(data => {
+                    ctx.session.context = "buy_add"
+                    ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
+                })
+                .catch(e => {
+
+                })
+                break
 
             /**
              * @Settings is where user can change language and some more configurations
              */   
-            case '☸ Setting': messages.Settings(ctx.message.from.id)
+            case '☸ Settings': messages.Settings(ctx.message.from.id)
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
+                .catch(e => {
 
-            /**
-             * @add_channel is message that user call when want to add new channels. Replying with request to enter name
-             */
-            case 'add_channel': messages.AddChannelGet(ctx.message.from.id)
-                .then(data => {
-                    ctx.state.context = "add_channel"
-                    ctx.replyWithHTML(data.text)
                 })
-
-            /**
-             * @Balance is simply returning balance of linked crypto wallet
-             */
-            case 'Balance': messages.Balance(ctx.message.from.id)
-                .then(data => {
-                    ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
-                })
-
-            /**
-             * @Channels return list of channels where BOT is admin and can pin. Also some stats
-             */
-            case 'Channels': messages.Channels(ctx.message.from.id)
-                .then(data => {
-                    ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
-                })
-
-            
+                break
+                
         }
     }
-    // if ()
+
+    /**
+     * @ctx_session_context if there is context in message use context as API and text as data.
+     */
+    if (ctx.session.context) {
+        const context = ctx.session.context
+        const id = ctx.update.message.from.id
+        
+        switch (context) {
+            case 'add_channel':
+                // if user not specified '@' at channel name need to prepend it
+                if (text.indexOf("@") == -1)
+                    text = "@" + text
+
+                ctx.session.context = false
+
+                db_api.check_channel_exists(id, text)
+                .then(async () => {
+
+                    const res = await bot.telegram.sendMessage(text, 'david_advertise_channel_ping', { disable_notification:true })
+
+                    const chatId = res.chat.id
+                    const admin = await ctx.getChat(chatId)
+                    
+                    await channel_api.deletePingAndAddChannel(ctx, res, admin.id)
+                
+                    ctx.replyWithHTML(
+                        `<b>Channel:</b> @${res.chat.username} successfully connect to your profile\n\nPlease configure advertisment post options.\n\nIf you skip that step now you can later find it at ☸ Settings`,
+                        {
+                            reply_markup: markup_api.conf_post_options.reply_markup,
+                            parse_mode: "HTML"
+                        }
+                    )
+                })
+                .catch(e => {
+                    console.log(202, e)
+                    if (e.message == 'error_saving_channel') 
+                        ctx.reply(`There is error accured while connecting @${res.chat.username} to your profile`)
+                    
+                    else if (e.message == "channel_exists")
+                        ctx.reply(`${text} channel already connected to your profile`)
+                })
+                    
+                break
+
+            case 'set_post_option':
+                const channelName = ctx.session.context_1
+                if (text.split(" ").length == 3) {
+                    await db_api.updateChannelConfiguation(id, channelName, 'post_options', text.split(" "))
+                    ctx.reply("Post details successfully saved, going back ...")
+                    
+                    messages.EditChannel(id, channelName).then(data => {
+                        setTimeout(() => {
+                            ctx.replyWithHTML(data.text, {
+                                reply_markup: data.reply_markup,
+                                parse_mode: "HTML"
+                            })  
+                        }, 3000)
+                    })
+                    .catch(e => {
+                        console.log(e)
+                    })
+                }
+                else {
+                    ctx.replyWithHTML(
+                        `Please check that you sending Post details correctly.`,
+                        {
+                            reply_markup: markup_api.edit_channel_back(channelName).reply_markup,
+                            parse_mode: "HTML"
+                        }
+                    )
+                }
+            
+                break                
+            
+            case 'buy_add':
+                if (text.indexOf("@") != -1)
+                    text = text.split("@")[1]
+
+                ctx.session.context = false
+
+                db_api.findChannel(text)
+                .then(res => {
+                    ctx.session.context = res
+                    if (!res.channel.status) {
+                        ctx.replyWithHTML(
+                            `Please choose duration of post`,
+                            {
+                                reply_markup: markup_api.get_post_options(text, res.config.post_options).reply_markup,
+                                parse_mode: "HTML"
+                            }
+                        )
+                    }
+                    else {
+                        ctx.replyWithHTML(
+                            `@${text} channel is already busy with another post.\nEnd date is ${text.channel.post.end_day}`
+                        )
+                    }
+                })
+                .catch(async err => {
+                    if (err.status == "not_connected") {
+                        ctx.replyWithHTML(
+                            `@${text} channel not connected. You can ask owner of this channel to connect`
+                        )
+                    }
+                })
+        }
+
+        if (typeof context == "object" && context.type == "option_selected") {
+            const profile = context.profile
+            const lang = profile.config.channel_language
+
+            if (text.localeCompare(lang)) {
+                const wallet = profile.profile.settings.wallet.public
+
+                const temp_tx_result = await temp_tx_store.methods.set({
+                    duration: context.duration,
+                    amount: context.amount,
+                    profile: context.profile
+                })
+
+                const wallet_to_watch = await address_requester.send({ type:'generate-address', data:{
+                    blockchain: "MINTER",
+                    id: profile.profile.id,
+                    tx_id: temp_tx_result.id
+                }})
+
+                const updated_profile = await db_api.get_user(profile.profile.id)
+            
+                minter_requester.send({ type:"start_watching", data: {
+                    order_id: temp_tx_result.id,
+                    profile: updated_profile,
+                    chain: "MINTER",
+                    temp_wallet: wallet_to_watch.MINTER.public,
+                    amount: context.amount,
+                    final_wallet: wallet,
+                    post_details: {
+                        text: text,
+                        duration: context.duration,
+                        channel: profile.channel.username
+                    }
+                }})
+
+                ctx.reply(`Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
+                    { parse_mode: "HTML"}
+                )
+                ctx.replyWithPhoto(`https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
+                
+                
+            }
+            else {
+                ctx.telegram.sendMessage(`Sorry. In this channel you can post only ${lang} ${lang_logo[lang]} language content`)
+            }
+        }
+    }
 })
 
-bot.command('pin', (ctx) => {
-    // console.log(ctx)
-    // ctx.sendMessage({
-    //     chat_id: "@akdnfqkwerqwer",
-    //     text: "Hello"
-    // })
-    ctx.getChat().then(console.log)
-    // ctx.pinChatMessage({
-    //     chat_id: "@akdnfqkwerqwer",
-    //     message_id: ""
-    // })
+/**
+ * добавить проверку сообщения через админа
+ * отправляем в канал
+ * пин в канал
+ * изменить на статус канала на тру
+ * отправляю уведомление овнеру
+ * кидаю в сервис, жду пока не закончится срок поста
+ * после окончания поста уведомление овнеру, статус на фолс 
+ */
+transaction_responder.on('transaction_submited', async (msg) => {
+    try {
+        await bot.telegram.sendMessage(msg.data.channel, msg.data.text)
+    }
+    catch (e) {
+
+    }
 })
 
 bot.help((ctx) => ctx.reply('Help will be there soon'))
 
 bot.launch()
-
-
-// try {
-//     const profile = await db_api.get_user(ctx.message.from.id)
-//     console.log(profile)
-// }
-// catch (e) {
-//     if (e.message == "no_user") {
-//         ctx.reply('You need to execute /start command first')
-//     }
-// }

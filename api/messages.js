@@ -1,6 +1,7 @@
 const db_api     = require('./mongo')
 const markup_api = require('./markups')
 const Abr        = require('@aloborio/blockchain/dist/index')
+const lang_logo  = require('./language-logo')
 
 const abr = new Abr.default()
 
@@ -15,16 +16,13 @@ module.exports = {
                     text:`
 <b>ACCOUNT DETAILS</b>
                         
-<b>Username:</b>  ${profile.username}
-<b>First name:</b>  ${profile.first_name}
-<b>Second name:</b>  ${(typeof profile.second_name == "undefined" || !profile.second_name) ? "" : profile.second_name}
-                        
-<b>Language:</b>  ${profile.settings.language_code}
+<b>Wallet:</b>  ${profile.settings.wallet.public}
+<b>Balance:</b>  ${balance} BIP
+
+<b>Language:</b>  ${profile.settings.language_code} ${lang_logo[profile.settings.language_code]}
 
 <b>Connected channels:</b>  ${profile.settings.channels.length}
 
-<b>Wallet:</b>  ${profile.settings.wallet.public}
-<b>Balance:</b>  ${balance} BIP
                     `,
                     reply_markup: markup_api.profile.reply_markup
                 })
@@ -58,21 +56,211 @@ module.exports = {
     AddChannelGet () {
         return new Promise(async (resolve, reject) => {
             resolve({
-                text: `Please send me the name of the channel`,
+                text: `
+Please send me the <b>username</b> of the channel.
+You can use <code>@channelname</code> or simply <code>channelname</code>
+`,
+                reply_markup: markup_api.add_channel_get.reply_markup
             })
         })
     },
 
-    AddChannelPost (id, name) {
+    BuyAdvertising () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `
+Please send me the name of the channel where you want to buy advertising
+You can send as <code>@channelname</code> or simply <code>channelname</code>
+`,
+            })
+        })
+    },
+
+    Balance () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: "asds"
+            })
+        })            
+    },
+
+    Channels (id) {
         return new Promise(async (resolve, reject) => {
             try {
-                const channel_ex_check = await db_api.check_channel_exists(id, name)
-                if (!channel_ex_check) {
-                    await db_api.add_channel(id, name)
+                const profile = await db_api.get_user(id)
+
+                let html = ``
+                let markup = ``
+
+                if (profile.settings.channels.length) {
+                    html   = `<b>Connected channels</b>\n\n`
+                    markup = markup_api.show_channels.reply_markup
                 }
+
+                else {
+                    html = `<b>No channels connected yet.</b>\nPlease navigate to ☸ Settings to add channels`
+                    markup = markup_api.show_channels_with_settings.reply_markup
+                } 
+
+                for (let i = 0; i < profile.settings.channels.length; i++) {
+                    const channel = profile.settings.channels[i]
+                    html += `------------------\n`
+                    html += `<b>Channel id: </b> @${channel.name} \n`
+                    html += `<b>Status: </b> ${(channel.status) ? 'enabled' : 'disabled'} ${(channel.status) ? '✅' : '❌'}\n`
+                }
+
+                resolve({
+                    text: html,
+                    reply_markup: markup
+                })
             }
             catch (e) {
+                reject({ text:"Error getting your profile" })
+            }
+        })        
+    },
 
+    ChannelsToEdit (id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const profile = await db_api.get_user(id)
+
+                let html = ``
+
+                if (profile.settings.channels.length) {
+                    html   = `<b>Select channel to edit</b>`
+                    markup = markup_api.channelsToEdit(profile.settings.channels).reply_markup
+                }
+                else {
+                    html = `<b>No channels to edit.</b>\nPlease navigate to ☸ Settings to add channels`
+                    markup = markup_api.show_channels_with_settings.reply_markup
+                }
+
+                resolve({
+                    text: html,
+                    reply_markup: markup
+                })
+            }
+            catch (e) {
+                console.log(e)
+                reject({ text:"Error getting your profile" })
+            }
+        })
+    },
+
+    EditChannel (id, name) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const profile = await db_api.get_user(id)
+                let focus_channel = ''
+                let html = ``
+                let markup = ``
+
+                for (let i = 0; i < profile.settings.channels.length; i++) {
+                    const i_channel = profile.settings.channels[i].name
+                    if (i_channel == name) {
+                        focus_channel = profile.settings.channels[i]
+                    }
+                }                  
+
+                if (focus_channel) {
+                    const configs = await db_api.getChannelConfigurations(focus_channel.configuration)
+                    
+                    html = `<b>Channel configurations</b>\n\n<b>Channel language: </b>${configs.channel_language} ${lang_logo[configs.channel_language]}\n`
+                    
+                    if (configs.post_options.length) {
+                        html += `<b>Price list</b> displayed below\n`
+                        markup = markup_api.show_channel_conf_listOfPosts(focus_channel.name, configs.post_options).reply_markup
+                    }
+
+                    else {
+                        html += `<b>Price list: </b><code>empty</code>\n`
+                        markup = markup_api.show_channel_conf_emptyposts(focus_channel.name).reply_markup
+                    }
+                }
+                else
+                    throw "Configurations for channel not found."
+
+                resolve({
+                    text: html,
+                    reply_markup: markup
+                })
+                
+            }
+            catch (e) {
+                console.log(e)
+                reject({ text:e })
+            }
+        })
+    },
+
+    EditChannelLanguage (id, name) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                resolve({
+                    text: `<b>Please select language of your channel</b>.\n\nThis language will be used to filter advertisment posts.\nExample: post with language <b>'de'</b> will be denied in <b>'en'</b> channel`,
+                    reply_markup: markup_api.show_language_configs(name).reply_markup
+                })
+            }
+            catch (e) {
+                console.log(e)
+                reject({ text:e })
+            }
+        })
+    },
+
+    EditChannelPostOptions (id, name) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const channel        = await db_api.getChannel(id, name)
+                const configurations = await db_api.getChannelConfigurations(channel.configuration)
+
+                resolve({
+                    text: `Please select option to edit or click <code>Add new</code> to create new.`,
+                    reply_markup: markup_api.show_channel_conf_listOfPosts(name, configurations.post_options).reply_markup
+                })
+            }
+            catch (e) {
+                console.log(e)
+                reject(e)
+            }
+        })
+    },
+
+    AddNewChannelOption (id, name) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                resolve({
+                    text: `
+<b>Please enter terms of post option.</b>
+
+You can enter with upercase or lowercase, but order should be <code>duration</code> (1, 7, 365) <code>numeration</code> (min, hour, day, week, month, year) <code>amount</code> (100, 1.01, 0.05)
+
+<b>Example:</b>\n<code>1 DAY 1000</code> or <code>1 day 1000</code>
+
+❗ Amount specified in <b>BIP</b>, currency of <a href="https://minter.network">Minter blockchain</a> ❗
+You can find price at @bip_banker_bot or <a href="https://bip.dev">Mbank</a>
+`,
+                    reply_markup: markup_api.edit_channel_back(name).reply_markup
+                })
+            }
+            catch (e) {
+                console.log(e)
+                reject(e)
+            }
+        })
+    },
+
+    BuyPostOptionSelected () {
+        return new Promise(async (resolve, reject) => {
+            try {
+                resolve({
+                    text: `<b>Please send content of channel post</b>`
+                })
+            }
+            catch (e) {
+                console.log(e)
+                reject(e)
             }
         })
     }
