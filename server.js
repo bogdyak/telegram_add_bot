@@ -9,8 +9,9 @@ const fs  = require('fs')
  */
 const Telegraf = require('telegraf')
 const session  = require('telegraf/session')
-const socket   = require('socket.io-client')
+// const socket   = require('socket.io-client')
 const cote     = require('cote')
+const LocalSession = require('telegraf-session-local')
 
 
 /**
@@ -35,13 +36,33 @@ const actions       = require('./api/actions')
 const lang_logo     = require('./api/language-logo')
 const temp_tx_store = require('./mongoose/EcommTempTxStore')
 
+let sessions = {}
+
+let me = ""
 
 bot.use(session())
 bot.use((ctx, next) => {
-    ctx.telegram.getMe().then(data => {
-        ctx.state.me = data.username
-    })
+    if (typeof ctx.update.callback_query != "undefined") {
+        if (typeof sessions[ctx.update.callback_query.from.id] == "undefined")
+            sessions[ctx.update.callback_query.from.id] = {}
+        
+        if (typeof sessions[ctx.update.callback_query.from.id].context == "undefined") 
+            sessions[ctx.update.callback_query.from.id].context = {}
+                
+    }
+    else if (typeof ctx.update.message != "undefined") {
+        if (typeof sessions[ctx.update.message.from.id] == "undefined")
+            sessions[ctx.update.message.from.id] = {}
+
+        if (typeof sessions[ctx.update.message.from.id].context == "undefined") 
+            sessions[ctx.update.message.from.id].context = {}
+    }
+
     return next()
+})
+
+bot.telegram.getMe().then(data => {
+    me = data.username
 })
 
 bot.start(async (ctx) => {
@@ -68,14 +89,14 @@ bot.start(async (ctx) => {
 /**
  * @add_channel is message that user call when want to add new channels. Replying with request to enter name
  */
-bot.action('add_channel', (ctx) => actions.add_channel(ctx))
-bot.action('back_to_settings', (ctx) => actions.back_to_settings(ctx))
-bot.action('back_to_profile', (ctx) => actions.back_to_profile(ctx))
+bot.action('add/channel', (ctx) => actions.add_channel(ctx))
+bot.action('back/to/settings', (ctx) => actions.back_to_settings(ctx))
+bot.action('back/to/profile', (ctx) => actions.back_to_profile(ctx))
 bot.action('channels', (ctx) => actions.channels(ctx))
-bot.action('edit_channel', (ctx) => actions.edit_channel(ctx))
+bot.action('edit/channel', (ctx) => actions.edit_channel(ctx))
 
-bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, (ctx) => {
-    const data    = ctx.update.callback_query.data.split("_")
+bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
+    const data    = ctx.update.callback_query.data.split("/")
     const from_id = ctx.update.callback_query.from.id
 
     if (data[0]+data[1] == 'editchannel') {
@@ -151,8 +172,8 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, (ctx) => {
 
         messages.AddNewChannelOption(from_id, channelName)
         .then(data => {
-            ctx.session.context = `set_post_option`
-            ctx.session.context_1 = channelName
+            sessions[from_id].context = `set_post_option`
+            sessions[from_id].context_1 = channelName
             ctx.editMessageText(data.text, {
                 reply_markup: data.reply_markup,
                 parse_mode: "HTML"
@@ -169,11 +190,11 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, (ctx) => {
 
         messages.BuyPostOptionSelected(from_id, channelName)
         .then(_data => {
-            ctx.session.context = {
+            sessions[from_id].context = {
                 type: 'option_selected',
                 duration: data[3] + "_" + data[4],
                 amount: data[5],
-                profile: ctx.session.context
+                profile: sessions[from_id].context
             }
             ctx.editMessageText(_data.text, {
                 parse_mode: "HTML"
@@ -184,6 +205,58 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, (ctx) => {
             ctx.editMessageText(e.text)
         })
     }
+
+    else if (data[1]+data[2]+data[4] == "approvedpostfor") {
+        try {
+            const context = sessions[from_id].context
+            const profile = context.profile
+            const wallet  = profile.profile.settings.wallet.public
+            const text    = context.text
+    
+            const temp_tx_result = await temp_tx_store.methods.set({
+                duration: context.duration,
+                amount: context.amount,
+                profile: profile
+            })
+    
+            const wallet_to_watch = await address_requester.send({ type:'generate-address', data:{
+                blockchain: "MINTER",
+                id: profile.profile.id,
+                tx_id: temp_tx_result.id
+            }})
+    
+            const updated_profile = await db_api.get_user(profile.profile.id)
+        
+            minter_requester.send({ type:"start_watching", data: {
+                order_id: temp_tx_result.id,
+                profile: updated_profile,
+                chain: "MINTER",
+                temp_wallet: wallet_to_watch.MINTER.public,
+                amount: context.amount,
+                final_wallet: wallet,
+                post_details: {
+                    text: text,
+                    duration: context.duration,
+                    full_profile: updated_profile,
+                    admin: data[0],
+                    client: data[5],
+                    channel: data[3]
+                }
+            }})
+    
+            ctx.telegram.sendMessage(data[5], `Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
+                { parse_mode: "HTML" }
+            )
+            ctx.telegram.sendPhoto(data[5], `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
+        }
+        catch (e) {
+            console.log(e)
+        }
+    }
+
+    else if (data[1]+data[2]+data[4] == "declinedpostfor") {
+        ctx.telegram.sendMessage(data[5], `@${data[0]} - creator of @${data[3]} channel declined your post. Consider contacting him/her for details.`)
+    }
 })
 
 
@@ -193,13 +266,16 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, (ctx) => {
  */
 bot.on('message', async (ctx) => {
     let text = ctx.message.text
+    const from_id = ctx.message.from.id
 
-    if (!ctx.session.context && typeof text != 'undefined' && text) {
+    console.log(me)
+
+    if (!Object.keys(sessions[from_id].context).length && typeof text != 'undefined' && text) {
         switch (text) {
             /**
              * @Profile is details of user account, wallet, name, channels, etc.
              */
-            case '👨‍💻 Profile': messages.Profile(ctx.message.from.id)
+            case '👨‍💻 Profile': messages.Profile(from_id)
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
@@ -208,9 +284,9 @@ bot.on('message', async (ctx) => {
                 })
                 break
 
-            case '📢 Buy Add': messages.BuyAdvertising(ctx.message.from.id)
+            case '📢 Buy Add': messages.BuyAdvertising(from_id)
                 .then(data => {
-                    ctx.session.context = "buy_add"
+                    sessions[from_id].context = "buy_add"
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
                 .catch(e => {
@@ -221,7 +297,7 @@ bot.on('message', async (ctx) => {
             /**
              * @Settings is where user can change language and some more configurations
              */   
-            case '☸ Settings': messages.Settings(ctx.message.from.id)
+            case '☸ Settings': messages.Settings(from_id)
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
@@ -236,19 +312,21 @@ bot.on('message', async (ctx) => {
     /**
      * @ctx_session_context if there is context in message use context as API and text as data.
      */
-    if (ctx.session.context) {
-        const context = ctx.session.context
-        const id = ctx.update.message.from.id
+    if (Object.keys(sessions[from_id].context).length) {
+        const context = sessions[from_id].context
         
+        /**
+         * @description hanlder for simple message with context: add_channel, set_post_option, buy_add
+         */
         switch (context) {
             case 'add_channel':
                 // if user not specified '@' at channel name need to prepend it
                 if (text.indexOf("@") == -1)
                     text = "@" + text
 
-                ctx.session.context = false
+                sessions[from_id].context = {}
 
-                db_api.check_channel_exists(id, text)
+                db_api.check_channel_exists(from_id, text)
                 .then(async () => {
 
                     const res = await bot.telegram.sendMessage(text, 'david_advertise_channel_ping', { disable_notification:true })
@@ -278,12 +356,12 @@ bot.on('message', async (ctx) => {
                 break
 
             case 'set_post_option':
-                const channelName = ctx.session.context_1
+                const channelName = sessions[from_id].context_1
                 if (text.split(" ").length == 3) {
-                    await db_api.updateChannelConfiguation(id, channelName, 'post_options', text.split(" "))
+                    await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
                     ctx.reply("Post details successfully saved, going back ...")
                     
-                    messages.EditChannel(id, channelName).then(data => {
+                    messages.EditChannel(from_id, channelName).then(data => {
                         setTimeout(() => {
                             ctx.replyWithHTML(data.text, {
                                 reply_markup: data.reply_markup,
@@ -311,11 +389,11 @@ bot.on('message', async (ctx) => {
                 if (text.indexOf("@") != -1)
                     text = text.split("@")[1]
 
-                ctx.session.context = false
+                sessions[from_id].context = {}
 
                 db_api.findChannel(text)
                 .then(res => {
-                    ctx.session.context = res
+                    sessions[from_id].context = res
                     if (!res.channel.status) {
                         ctx.replyWithHTML(
                             `Please choose duration of post`,
@@ -338,59 +416,56 @@ bot.on('message', async (ctx) => {
                         )
                     }
                 })
+
+                break
         }
 
+        /**
+         * @description handler for client has sent content of post
+         */
         if (typeof context == "object" && context.type == "option_selected") {
-            const profile = context.profile
-            const lang = profile.config.channel_language
-
+            const profile  = context.profile
+            const lang     = profile.config.channel_language
+            let creator_id = ""
+            
             if (text.localeCompare(lang)) {
-                const wallet = profile.profile.settings.wallet.public
-
-                const temp_tx_result = await temp_tx_store.methods.set({
-                    duration: context.duration,
-                    amount: context.amount,
-                    profile: context.profile
+                const chat_name = context.profile.channel.name
+                const admins     = await ctx.telegram.getChatAdministrators("@"+chat_name)
+                const creator    = await channel_api.getChatCreatorUsername(admins)
+                creator_id       = await channel_api.getChatCreator(admins)
+                const msg_data   = await messages.AdminPostApproval({
+                    text: text,
+                    admin: creator,
+                    channelName: chat_name,
+                    requester: ctx.update.message.from.username,
+                    requester_id: from_id
                 })
 
-                const wallet_to_watch = await address_requester.send({ type:'generate-address', data:{
-                    blockchain: "MINTER",
-                    id: profile.profile.id,
-                    tx_id: temp_tx_result.id
-                }})
-
-                const updated_profile = await db_api.get_user(profile.profile.id)
-            
-                minter_requester.send({ type:"start_watching", data: {
-                    order_id: temp_tx_result.id,
-                    profile: updated_profile,
-                    chain: "MINTER",
-                    temp_wallet: wallet_to_watch.MINTER.public,
-                    amount: context.amount,
-                    final_wallet: wallet,
-                    post_details: {
-                        text: text,
-                        duration: context.duration,
-                        channel: profile.channel.username
+                /**
+                 * I have to localy sync client and admin sessions
+                 */
+                sessions[from_id].context.text = text
+                sessions[creator_id] = sessions[from_id]
+                
+                ctx.telegram.sendMessage(
+                    creator_id,
+                    msg_data.text,
+                    {
+                        parse_mode: "HTML",
+                        reply_markup: msg_data.reply_markup
                     }
-                }})
-
-                ctx.reply(`Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
-                    { parse_mode: "HTML"}
                 )
-                ctx.replyWithPhoto(`https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
-                
-                
             }
             else {
                 ctx.telegram.sendMessage(`Sorry. In this channel you can post only ${lang} ${lang_logo[lang]} language content`)
+                sessions[from_id].context = {}
+                sessions[creator_id].context = {}
             }
         }
     }
 })
 
 /**
- * добавить проверку сообщения через админа
  * отправляем в канал
  * пин в канал
  * изменить на статус канала на тру
@@ -400,10 +475,13 @@ bot.on('message', async (ctx) => {
  */
 transaction_responder.on('transaction_submited', async (msg) => {
     try {
-        await bot.telegram.sendMessage(msg.data.channel, msg.data.text)
+        msg.data.text += `\n\n<b>Posted with automated bot for advertising in channels - @${me}</b>`
+        await bot.telegram.sendMessage(msg.data.channel, msg.data.text, {
+            parse_mode: "HTML"
+        })
     }
     catch (e) {
-
+        console.log(e)
     }
 })
 

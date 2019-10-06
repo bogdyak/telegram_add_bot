@@ -255,13 +255,33 @@ You can find price at @bip_banker_bot or <a href="https://bip.dev">Mbank</a>
         return new Promise(async (resolve, reject) => {
             try {
                 resolve({
-                    text: `<b>Please send content of channel post</b>`
+                    text: `<b>Please send content of advertisment post</b>`
                 })
             }
             catch (e) {
                 console.log(e)
                 reject(e)
             }
+        })
+    },
+
+    AdminPostApproval ({ text, admin, channelName, requester, requester_id }) {
+        return new Promise((resolve, reject) => {
+            resolve({
+                text: `
+<b>New advertisment post requested in @${channelName}</b>
+
+Please read carefully content of advertisment post.
+
+By clicking <code>Approve</code> you confirm that post satisfies term of your channnel and once @${requester} will pay it will be auto posted and pinned in your channel.
+
+By clicking <code>Decline</code> @${requester} will be notified that chat owner declined advertisment post with your contacts.
+
+<b>--- Post content ---</b>
+${text}
+                `,
+                reply_markup: markup_api.post_text_admin_approval({ admin, channelName, requester_id }).reply_markup
+            })
         })
     }
 } 

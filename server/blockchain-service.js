@@ -9,7 +9,6 @@ const env  = require('../env')
  * @connections
  */
 const requester = new cote.Requester({ name:"blockchain-service-requester", key:"transactions" });
-const responder = new cote.Responder({ name:"blockchain-service-responder", key:"minter-service" })
 
 const abr = new Abr.default()
 

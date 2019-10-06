@@ -32,5 +32,16 @@ module.exports = {
         }
 
         return  creator
-    }
+    },
+
+    getChatCreatorUsername (admins) {
+        let creator = ""
+
+        for (let i = 0; i < admins.length; i++) {
+            if (admins[i].status == 'creator')
+                creator = admins[i].user.username
+        }
+
+        return  creator
+    },
 }
