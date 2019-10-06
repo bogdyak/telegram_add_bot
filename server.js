@@ -2,7 +2,7 @@
  * @env
  */
 const env = require('./env')
-const fs  = require('fs')
+const crypto = require('crypto')
 
 /**
  * @node_modules
@@ -22,7 +22,7 @@ const minter_requester = new cote.Requester({ name:"server-minter-requester", ke
 const address_requester = new cote.Requester({ name:"server-address-requester", key:"address-generate-tool" })
 const transaction_responder = new cote.Responder({ name:"server-tx-responder", key:"transactions" })
 const pin_requester = new cote.Requester({ name:"server-pin-requester", key:"pin-service" })
-const pin_responder = new cote.Responder({ name:"server-pin-responder", key:"pin-service" })
+const pin_responder = new cote.Responder({ name:"server-pin-responder", key:"pin-back-service" })
 
 
 /**
@@ -64,6 +64,8 @@ bot.use((ctx, next) => {
 bot.telegram.getMe().then(data => {
     me = data.username
 })
+
+bot.telegram.sendMessage("180985993", "Hello")
 
 bot.start(async (ctx) => {
     try {
@@ -238,9 +240,10 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                     text: text,
                     duration: context.duration,
                     full_profile: updated_profile,
-                    admin: data[0],
+                    admin: from_id,
                     client: data[5],
-                    channel: data[3]
+                    channel: data[3],
+                    hash: crypto.randomBytes(8).toString('hex')
                 }
             }})
     
@@ -267,8 +270,6 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
 bot.on('message', async (ctx) => {
     let text = ctx.message.text
     const from_id = ctx.message.from.id
-
-    console.log(me)
 
     if (!Object.keys(sessions[from_id].context).length && typeof text != 'undefined' && text) {
         switch (text) {
@@ -424,12 +425,12 @@ bot.on('message', async (ctx) => {
          * @description handler for client has sent content of post
          */
         if (typeof context == "object" && context.type == "option_selected") {
-            const profile  = context.profile
-            const lang     = profile.config.channel_language
+            const profile   = context.profile
+            const lang      = profile.config.channel_language
+            const chat_name = context.profile.channel.name
             let creator_id = ""
             
             if (text.localeCompare(lang)) {
-                const chat_name = context.profile.channel.name
                 const admins     = await ctx.telegram.getChatAdministrators("@"+chat_name)
                 const creator    = await channel_api.getChatCreatorUsername(admins)
                 creator_id       = await channel_api.getChatCreator(admins)
@@ -455,9 +456,10 @@ bot.on('message', async (ctx) => {
                         reply_markup: msg_data.reply_markup
                     }
                 )
+                ctx.telegram.sendMessage(from_id, `<b>Please wait until @${creator} verify your advertising post</b>`)
             }
             else {
-                ctx.telegram.sendMessage(`Sorry. In this channel you can post only ${lang} ${lang_logo[lang]} language content`)
+                ctx.telegram.sendMessage(`Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`)
                 sessions[from_id].context = {}
                 sessions[creator_id].context = {}
             }
@@ -465,23 +467,53 @@ bot.on('message', async (ctx) => {
     }
 })
 
-/**
- * отправляем в канал
- * пин в канал
- * изменить на статус канала на тру
- * отправляю уведомление овнеру
- * кидаю в сервис, жду пока не закончится срок поста
- * после окончания поста уведомление овнеру, статус на фолс 
- */
 transaction_responder.on('transaction_submited', async (msg) => {
     try {
         msg.data.text += `\n\n<b>Posted with automated bot for advertising in channels - @${me}</b>`
-        await bot.telegram.sendMessage(msg.data.channel, msg.data.text, {
+        const message_result = await bot.telegram.sendMessage("@"+msg.data.channel, msg.data.text, {
             parse_mode: "HTML"
         })
+        await bot.telegram.pinChatMessage(
+            "@"+msg.data.channel,
+            message_result.message_id,
+            { parse_mode:"HTML" }
+        )
+        await bot.telegram.sendMessage(
+            msg.data.admin,
+            `<b>New post in @${msg.data.channel} been posted and pinned</b>`,
+            { parse_mode: "HTML" }
+        )
+        await bot.telegram.sendMessage(
+            msg.data.client,
+            `<b>Your advertisment post in @${msg.data.channel} been successfully posted</b>`,
+            { parse_mode: "HTML" }
+        )
+        await db_api.changeChannelStatus(msg.data.channel)
+
+        pin_requester.send({ type:'start_countdown', data:{
+            period: msg.data.duration.split("_")[0],
+            numeration: msg.data.duration.split("_")[1],
+            pinned_msg_id: message_result.message_id,
+            channel: msg.data.channel,
+            admin: msg.data.admin,
+            client: msg.data.client,
+        }})
+        
     }
     catch (e) {
         console.log(e)
+        await bot.telegram.message(msg.data.client, `Error accured while posting your advertisment, Please contact @b_sizov for support.`)
+    }
+})
+
+pin_responder.on('unpin_post', async (msg) => {
+    try {
+        await bot.telegram.unpinChatMessage("@"+msg.data.channel)
+        await db_api.changeChannelStatus(msg.data.channel)
+    }
+    catch (e) {
+        console.log(e)
+        await bot.telegram.message(msg.data.admin, `Error while trying to unpin ${msg.data.pinned_msg_id} from @${msg.data.channel} channel`)
     }
 })
 

@@ -24,59 +24,53 @@ module.exports = class Watcher {
         this.post_details = post_details
 
         this.run()
+        this.expirationCalc = 0
+        this.transaction_submited_msg_sent = false
     }
 
-    run () {
+    async run () {
         try {
-            let calc = 0
-            let did = false
-            this.interval = setInterval(async () => {
-                if (calc < 1800000) {
-                    calc += 1000
-                    let balance = await abr[this.chain].getBalance(this.temp_wallet, 18)
-                   
-                    balance = Number(balance).toFixed(5)
-    
-                    if (Number(balance) == Number(this.amount)) {
-                        this.stop()
-                        
-                        const history = await abr[this.chain].getHistory(this.temp_wallet)
-    
+            if (this.expirationCalc < 1800000) {
+                this.expirationCalc += 1000
+
+                let balance = await abr[this.chain].getBalance(this.temp_wallet, 18)
+                
+                balance = Number(balance).toFixed(5)
+
+                if (Number(balance) == Number(this.amount) && !this.transaction_submited_msg_sent) {
+                    const history = await abr[this.chain].getHistory(this.temp_wallet)
+
+                    /**
+                     * @DEV add here sending history[0] to stats 
+                     */
+                    requester.send({ type:"transaction_submited", data:this.post_details })
+                    this.transaction_submited_msg_sent = true
+
+                    const payment = await abr[this.chain].payment(this.final_wallet, this.amount / (1 + env.FEE))
+                    
+                    const signed = await abr[this.chain].wallet.signTransaction(payment, this.findKey())
+                    
+                    abr[this.chain].submitSigned(signed)
+                    .on('confirmation', (data) => {
                         /**
-                         * @DEV add here sending history[0] to stats 
+                         * save stats
                          */
-                        requester.send({ type:"transaction_submited", data:this.post_details })
-    
-                        const payment = await abr[this.chain].payment(this.final_wallet, this.amount / (1 + env.FEE))
+                    })
+                    .on('error', (e) => {
                         
-                        const signed = await abr[this.chain].wallet.signTransaction(payment, this.findKey())
-                        
-                        abr[this.chain].submitSigned(signed)
-                        .on('confirmation', (data) => {
-                            if (!did) {
-                                did = true
-                            }
-                        })
-                        .on('error', (e) => {
-                            if (!did) {
-                                did = true
-                                console.log(e)
-                            }
-                        })
-                    }
+                    })
                 }
                 else {
-                    this.stop()
+                    let that = this
+                    setTimeout(function () {
+                        that.run()
+                    }, 2500)
                 }
-            }, 1000)
+            }
         }
         catch (e) {
             console.log(e)
         }
-    }
-
-    stop () {
-        clearInterval(this.interval)
     }
 
     findKey () {

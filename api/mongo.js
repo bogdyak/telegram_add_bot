@@ -266,5 +266,33 @@ module.exports = {
                 reject({status:"error", data: e})
             }
         })
+    },
+
+    changeChannelStatus (name) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let result = await profile_schema.find({
+                    'settings.channels.name': name
+                })
+                result = result[0]
+
+                let focus_channel = {}
+
+                for (let i = 0; i < result.settings.channels.length; i++) {
+                    if (result[i].settings.channles.name == name) {
+                        focus_channel = result[i].settings.channels
+                        i = result.settings.channels.length
+                    }
+                }
+                focus_channel.status = true
+                result.markModified('settings')
+                await result.save()
+                resolve(true)
+            }
+            catch (e) {
+                console.log(e)
+                reject({status:"error", data: e})
+            }
+        })
     }
 }
