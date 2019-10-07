@@ -11,7 +11,6 @@ const Telegraf = require('telegraf')
 const session  = require('telegraf/session')
 // const socket   = require('socket.io-client')
 const cote     = require('cote')
-const LocalSession = require('telegraf-session-local')
 
 
 /**
@@ -367,7 +366,7 @@ bot.on('message', async (ctx) => {
                 if (text.split(" ").length == 3) {
                     await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
                     ctx.reply("Post details successfully saved, going back ...")
-                    session[from_id].context = {}
+                    sessions[from_id].context = {}
                     
                     messages.EditChannel(from_id, channelName).then(data => {
                         setTimeout(() => {
