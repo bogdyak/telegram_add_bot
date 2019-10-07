@@ -278,6 +278,18 @@ bot.on('message', async (ctx) => {
     let text = ctx.message.text
     const from_id = ctx.message.from.id
 
+    switch (text) {
+        case '👨‍💻 Profile': 
+            sessions[from_id].context = {}
+        break
+        case '📢 Buy Add': 
+            sessions[from_id].context = {}
+        break
+        case '☸ Settings': 
+            sessions[from_id].context = {}
+        break
+    }
+
     if (!Object.keys(sessions[from_id].context).length && typeof text != 'undefined' && text) {
         switch (text) {
             /**
