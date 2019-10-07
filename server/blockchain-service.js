@@ -23,9 +23,10 @@ module.exports = class Watcher {
         this.final_wallet = final_wallet
         this.post_details = post_details
 
-        this.run()
         this.expirationCalc = 0
         this.transaction_submited_msg_sent = false
+        
+        this.run()
     }
 
     async run () {
