@@ -39,22 +39,31 @@ let sessions = {}
 
 let me = ""
 
+const session_check = (id) => {
+    if (typeof sessions[id] == "undefined")
+        sessions[id] = {}
+}
+
+const context_check = (id) => {
+    if (typeof sessions[id].context == "undefined")
+        sessions[id].context = {}
+}
+
+const sessions_check_update = (id, update) => {
+    session_check(id)
+    context_check(id)
+    sessions[id].context = update
+}
+
 bot.use(session())
 bot.use((ctx, next) => {
     if (typeof ctx.update.callback_query != "undefined") {
-        if (typeof sessions[ctx.update.callback_query.from.id] == "undefined")
-            sessions[ctx.update.callback_query.from.id] = {}
-        
-        if (typeof sessions[ctx.update.callback_query.from.id].context == "undefined") 
-            sessions[ctx.update.callback_query.from.id].context = {}
-                
+        session_check(ctx.update.callback_query.from.id)
+        context_check(ctx.update.callback_query.from.id)           
     }
     else if (typeof ctx.update.message != "undefined") {
-        if (typeof sessions[ctx.update.message.from.id] == "undefined")
-            sessions[ctx.update.message.from.id] = {}
-
-        if (typeof sessions[ctx.update.message.from.id].context == "undefined") 
-            sessions[ctx.update.message.from.id].context = {}
+        session_check(ctx.update.message.from.id)
+        context_check(ctx.update.message.from.id)
     }
 
     return next()
@@ -64,7 +73,7 @@ bot.telegram.getMe().then(data => {
     me = data.username
 })
 
-bot.telegram.sendMessage("180985993", "Hello")
+bot.telegram.sendMessage("180985993", "Bot restarted")
 
 bot.start(async (ctx) => {
     try {
@@ -90,12 +99,14 @@ bot.start(async (ctx) => {
 /**
  * @add_channel is message that user call when want to add new channels. Replying with request to enter name
  */
-bot.action('add/channel', (ctx) => {
-    sessions[ctx.update.callback_query.from.id].context = "add_channel"
+bot.
+action('add/channel', (ctx) => {
+    sessions_check_update(ctx.update.callback_query.from.id, "add_channel")
     actions.add_channel(ctx)
 })
-bot.action('back/to/settings', (ctx) => {
-    sessions[ctx.update.callback_query.from.id].context = {}
+bot.
+action('back/to/settings', (ctx) => {
+    sessions_check_update(ctx.update.callback_query.from.id, {})
     actions.back_to_settings(ctx)
 })
 bot.action('back/to/profile', (ctx) => actions.back_to_profile(ctx))
@@ -179,7 +190,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
 
         messages.AddNewChannelOption(from_id, channelName)
         .then(data => {
-            sessions[from_id].context = `set_post_option`
+            sessions_check_update(from_id, `set_post_option`)
             sessions[from_id].context_1 = channelName
             ctx.editMessageText(data.text, {
                 reply_markup: data.reply_markup,
@@ -197,12 +208,12 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
 
         messages.BuyPostOptionSelected(from_id, channelName)
         .then(_data => {
-            sessions[from_id].context = {
+            sessions_check_update(from_id, {
                 type: 'option_selected',
                 duration: data[3] + "_" + data[4],
                 amount: data[5],
                 profile: sessions[from_id].context
-            }
+            })
             ctx.editMessageText(_data.text, {
                 parse_mode: "HTML"
             })
@@ -280,14 +291,17 @@ bot.on('message', async (ctx) => {
 
     switch (text) {
         case '👨‍💻 Profile': 
-            sessions[from_id].context = {}
+            sessions_check_update(from_id, {})
         break
+
         case '📢 Buy Add': 
-            sessions[from_id].context = {}
+            sessions_check_update(from_id, {})
         break
+
         case '☸ Settings': 
-            sessions[from_id].context = {}
+            sessions_check_update(from_id, {})
         break
+
     }
 
     if (!Object.keys(sessions[from_id].context).length && typeof text != 'undefined' && text) {
@@ -306,7 +320,7 @@ bot.on('message', async (ctx) => {
 
             case '📢 Buy Add': messages.BuyAdvertising(from_id)
                 .then(data => {
-                    sessions[from_id].context = "buy_add"
+                    sessions_check_update(from_id, "buy_add")
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
                 .catch(e => {
@@ -344,7 +358,7 @@ bot.on('message', async (ctx) => {
                 if (text.indexOf("@") == -1)
                     text = "@" + text
 
-                sessions[from_id].context = {}
+                sessions_check_update(from_id, {})
 
                 db_api.check_channel_exists(from_id, text)
                 .then(async () => {
@@ -380,7 +394,7 @@ bot.on('message', async (ctx) => {
                 if (text.split(" ").length == 3) {
                     await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
                     ctx.reply("Post details successfully saved, going back ...")
-                    sessions[from_id].context = {}
+                    sessions_check_update(from_id, {})
                     
                     messages.EditChannel(from_id, channelName).then(data => {
                         setTimeout(() => {
@@ -410,11 +424,11 @@ bot.on('message', async (ctx) => {
                 if (text.indexOf("@") != -1)
                     text = text.split("@")[1]
 
-                sessions[from_id].context = {}
+                sessions_check_update(from_id, {})
 
                 db_api.findChannel(text)
                 .then(res => {
-                    sessions[from_id].context = res
+                    sessions_check_update(from_id, res)
                     if (!res.channel.status) {
                         ctx.replyWithHTML(
                             `Please choose duration of post`,
@@ -466,7 +480,7 @@ bot.on('message', async (ctx) => {
                  * I have to localy sync client and admin sessions
                  */
                 sessions[from_id].context.text = text
-                sessions[creator_id] = sessions[from_id]
+                sessions_check_update(creator_id, sessions[from_id])
                 
                 ctx.telegram.sendMessage(
                     creator_id,
@@ -484,11 +498,13 @@ bot.on('message', async (ctx) => {
             }
             else {
                 ctx.telegram.sendMessage(
+                    from_id,
                     `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
                     { parse_mode: "HTML" }
                 )
-                sessions[from_id].context = {}
-                sessions[creator_id].context = {}
+                
+                sessions_check_update(from_id, {})
+                sessions_check_update(creator_id, {})
             }
         }
     }
