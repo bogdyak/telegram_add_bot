@@ -278,17 +278,18 @@ module.exports = {
                 let result = await profile_schema.find({
                     'settings.channels.name': name
                 })
-                result = result[0]
+
+		result = result[0]
 
                 let focus_channel = {}
 
                 for (let i = 0; i < result.settings.channels.length; i++) {
-                    if (result[i].settings.channles.name == name) {
-                        focus_channel = result[i].settings.channels
+                    if (result.settings.channels[i].name == name) {
+                        focus_channel = result.settings.channels[i]
                         i = result.settings.channels.length
                     }
                 }
-                focus_channel.status = true
+                focus_channel.status = (focus_channel.status) ? false : true
                 result.markModified('settings')
                 await result.save()
                 resolve(true)
