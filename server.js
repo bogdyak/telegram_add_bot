@@ -438,7 +438,7 @@ bot.on('message', async (ctx) => {
             const chat_name = context.profile.channel.name
             let creator_id = ""
             
-            if (text.localeCompare(lang)) {
+            if (text.localeCompare(lang) == 1) {
                 const admins     = await ctx.telegram.getChatAdministrators("@"+chat_name)
                 const creator    = await channel_api.getChatCreatorUsername(admins)
                 creator_id       = await channel_api.getChatCreator(admins)
