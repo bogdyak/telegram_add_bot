@@ -70,7 +70,7 @@ bot.telegram.sendMessage("180985993", "Hello")
 bot.start(async (ctx) => {
     try {
         await db_api.new_user(ctx.message.from)
-        ctx.reply('Hello, my name is David Advertise. Thank you for choosing me.', markup_api.homePage)
+        ctx.reply('Hello, my name is Teleads. Thank you for choosing me.', markup_api.homePage)
     }
     catch (e) {
         console.log(e)

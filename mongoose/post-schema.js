@@ -1,7 +1,7 @@
 const env       = require('../env')
 const mongoose  = require('mongoose')
 
-mongoose.connect(`mongodb://${env.MONGO_URL}/davidadvertise`, {useNewUrlParser: true});
+mongoose.connect(`mongodb://${env.MONGO_URL}/teleads`, {useNewUrlParser: true});
 
 const PostSchema = new mongoose.Schema({
     start_day: {

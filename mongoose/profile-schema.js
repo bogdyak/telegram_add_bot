@@ -2,7 +2,7 @@ const env       = require('../env')
 const mongoose  = require('mongoose')
 const settings_model = require('./settings-schema').model
 
-mongoose.connect(`mongodb://${env.MONGO_URL}/davidadvertise`, {useNewUrlParser: true});
+mongoose.connect(`mongodb://${env.MONGO_URL}/teleads`, {useNewUrlParser: true});
 
 const Profile = new mongoose.Schema({
     _id: {

@@ -2,7 +2,7 @@ const env         = require('../env')
 const mongoose    = require('mongoose')
 const post_schema = require('./post-schema').model.schema.obj
 
-mongoose.connect(`mongodb://${env.MONGO_URL}/davidadvertise`, {useNewUrlParser: true});
+mongoose.connect(`mongodb://${env.MONGO_URL}/teleads`, {useNewUrlParser: true});
 
 const ChannelSchema = new mongoose.Schema({
     name: {
