@@ -79,7 +79,7 @@ bot.start(async (ctx) => {
     try {
         await db_api.new_user(ctx.message.from)
         messages.Welcome().then(data => {
-            ctx.replyWithHTML(data.text, {reply_markup:markup_api.homePage})
+            ctx.replyWithHTML(data.text, { reply_markup:markup_api.homePage })
         })
     }
     catch (e) {
@@ -490,7 +490,7 @@ bot.on('message', async (ctx) => {
                  * I have to localy sync client and admin sessions
                  */
                 sessions[from_id].context.text = text
-                sessions_check_update(creator_id, sessions[from_id])
+                sessions_check_update(creator_id, sessions[from_id].context)
                 
                 ctx.telegram.sendMessage(
                     creator_id,
