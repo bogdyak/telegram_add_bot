@@ -252,7 +252,9 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 }
             }})
     
-            ctx.telegram.sendMessage(data[5], `Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
+            ctx.telegram.sendMessage(
+                data[5],
+                `Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
                 { parse_mode: "HTML" }
             )
             ctx.telegram.sendPhoto(data[5], `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
@@ -462,10 +464,17 @@ bot.on('message', async (ctx) => {
                         reply_markup: msg_data.reply_markup
                     }
                 )
-                ctx.telegram.sendMessage(from_id, `<b>Please wait until @${creator} verify your advertising post</b>`)
+                ctx.telegram.sendMessage(
+                    from_id,
+                    `<b>Please wait until @${creator} verify your advertising post</b>\n\nI will notify you in the positive and negative case.`,
+                    { parse_mode: "HTML" }
+                )
             }
             else {
-                ctx.telegram.sendMessage(`Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`)
+                ctx.telegram.sendMessage(
+                    `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
+                    { parse_mode: "HTML" }
+                )
                 sessions[from_id].context = {}
                 sessions[creator_id].context = {}
             }
