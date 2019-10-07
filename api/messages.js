@@ -53,6 +53,35 @@ module.exports = {
         })
     },
 
+    Help () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `
+<b>How to add Teleads to channel</b>
+
+1) Add bot as administrator of channel
+2) Grant rights to:
+   ✅ Change channel info
+   ✅ Post messages
+   ✅ Edit messages of others
+   ✅ Delete messages of others
+   ❌ Add members
+   ❌ Add new admins
+3) Click Save
+
+4) Go to ☸ Settings
+5) Go to ➕ Add channel
+6) Send the channel username: @example
+7) Click ✏️ Configure channels
+8) Select channel from list to edit
+9) Click ➕ Add post option
+10) Click ➕ Add new
+11) Type example 1 day 1000; Which means 1 day duration of pinned message. Price 1000 BIP
+`
+            })
+        })
+    },
+
     AddChannelGet () {
         return new Promise(async (resolve, reject) => {
             resolve({

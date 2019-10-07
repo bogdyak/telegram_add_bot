@@ -339,7 +339,15 @@ bot.on('message', async (ctx) => {
 
                 })
                 break
-                
+
+            case 'ℹ️ Help': messages.Help()
+                .then(data => {
+                    ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
+                })
+                .catch(e => {
+
+                })
+                break
         }
     }
 

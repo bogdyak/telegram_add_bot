@@ -7,7 +7,7 @@ module.exports = {
     homePage: Markup
         .keyboard([
             ['👨‍💻 Profile', '📢 Buy Add'],
-            ['☸ Settings'],
+            ['☸ Settings', 'ℹ️ Help'],
         ])
         .oneTime()
         .resize()
