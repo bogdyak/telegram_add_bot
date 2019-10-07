@@ -6,6 +6,31 @@ const lang_logo  = require('./language-logo')
 const abr = new Abr.default()
 
 module.exports = {
+    Welcome () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `
+<b>Hello, my name is Teleads. Thank you for choosing me.</b>
+
+I automate advertisment post and pin them in your channel.
+You will automatically get paid minus bot fee.
+
+To secure your channel subscribers from obsence content and scam we have pre-aproval mechanism.
+You will receive message from me when somebody want to buy advertisment post.
+
+Also you can set channel language, which will secure English speaking subscribers from Chinese Ad posts.
+
+You can set many options of advertisment post in your channel, starting from seconds, up to year.
+For example you can show ad during 21 day.
+
+You can add as many channels as you wish and get paid from all of them.
+
+I am in beta version, but doing my best to be good friend for you. If you have issues with me, please repost my father - @b_sizov            
+                `
+            })
+        })
+    }, 
+
     Profile (id) {
         return new Promise(async (resolve, reject) => {
             try {

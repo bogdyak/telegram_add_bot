@@ -78,7 +78,9 @@ bot.telegram.sendMessage("180985993", "Bot restarted")
 bot.start(async (ctx) => {
     try {
         await db_api.new_user(ctx.message.from)
-        ctx.reply('Hello, my name is Teleads. Thank you for choosing me.', markup_api.homePage)
+        messages.Welcome().then(data => {
+            ctx.replyWithHTML(data.text, {reply_markup:markup_api.homePage})
+        })
     }
     catch (e) {
         console.log(e)
