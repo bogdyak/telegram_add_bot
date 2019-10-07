@@ -96,7 +96,7 @@ bot.action('add/channel', (ctx) => {
     actions.add_channel(ctx)
 })
 bot.action('back/to/settings', (ctx) => {
-    sessions[ctx.update.callback_query.from.id].context = false
+    sessions[ctx.update.callback_query.from.id].context = {}
     actions.back_to_settings(ctx)
 })
 bot.action('back/to/profile', (ctx) => actions.back_to_profile(ctx))
@@ -367,6 +367,7 @@ bot.on('message', async (ctx) => {
                 if (text.split(" ").length == 3) {
                     await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
                     ctx.reply("Post details successfully saved, going back ...")
+                    session[from_id].context = {}
                     
                     messages.EditChannel(from_id, channelName).then(data => {
                         setTimeout(() => {
