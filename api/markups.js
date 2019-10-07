@@ -6,7 +6,7 @@ const db_api    = require('./mongo')
 module.exports = {
     homePage: Markup
         .keyboard([
-            ['👨‍💻 Profile', '📢 Buy Add'],
+            ['👨‍💻 Profile', '📢 Buy Ad'],
             ['☸ Settings', 'ℹ️ Help'],
         ])
         .oneTime()
