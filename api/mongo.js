@@ -11,6 +11,7 @@ const profile_schema      = require('../mongoose/profile-schema').model
 const settings_schema     = require('../mongoose/settings-schema').model
 const channel_conf_schema = require('../mongoose/channel-settings-schema').model
 const channel_object      = require('../mongoose/channel-schema').model
+const util_api            = require('../api/util')
 const abr = new Abr.default()
 
 
@@ -189,9 +190,12 @@ module.exports = {
                 const channel = await this.getChannel(id, name)
                 const config = await channel_conf_schema.findById(channel.configuration)
 
+                let numeration = update[1]
+                numeration = util_api.defineNumeration(numeration)
+
                 config[configName].push({
                     duration: update[0],
-                    numeration: update[1],
+                    numeration: numeration,
                     price: update[2]
                 })
 
