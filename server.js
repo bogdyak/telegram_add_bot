@@ -12,7 +12,6 @@ const session  = require('telegraf/session')
 // const socket   = require('socket.io-client')
 const cote     = require('cote')
 
-
 /**
  * @connection
  */
@@ -22,7 +21,6 @@ const address_requester = new cote.Requester({ name:"server-address-requester", 
 const transaction_responder = new cote.Responder({ name:"server-tx-responder", key:"transactions" })
 const pin_requester = new cote.Requester({ name:"server-pin-requester", key:"pin-service" })
 const pin_responder = new cote.Responder({ name:"server-pin-responder", key:"pin-back-service" })
-
 
 /**
  * @custom_modules_apis
@@ -114,6 +112,16 @@ action('back/to/settings', (ctx) => {
 bot.action('back/to/profile', (ctx) => actions.back_to_profile(ctx))
 bot.action('channels', (ctx) => actions.channels(ctx))
 bot.action('edit/channel', (ctx) => actions.edit_channel(ctx))
+bot.action('back/buy/ad', (ctx) => {
+    messages.BuyAdvertising(ctx.update.callback_query.from.id)
+    .then(data => {
+        sessions_check_update(ctx.update.callback_query.from.id, "buy_ad")
+        ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
+    })
+    .catch(e => {
+
+    })
+})
 
 bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
     const data    = ctx.update.callback_query.data.split("/")

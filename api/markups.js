@@ -139,7 +139,7 @@ module.exports = {
             }]
         })
 
-        array.push([{ text:'Back', callback_data: `back/to/settings` }])
+        array.push([{ text:'Back', callback_data: `back/by/ad` }])
 
         return Extra.markup(
             Markup.inlineKeyboard(array)
