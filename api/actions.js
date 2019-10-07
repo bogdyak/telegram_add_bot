@@ -1,10 +1,9 @@
-const messages    = require('./messages')
+const messages = require('./messages')
 
 module.exports = {
     add_channel (ctx) {
         messages.AddChannelGet()
         .then(async data => {
-            ctx.session.context = "add_channel"
             Promise.all([
                 ctx.editMessageText(data.text, {
                     parse_mode: 'HTML',
@@ -18,7 +17,6 @@ module.exports = {
     },
 
     back_to_settings (ctx) {
-        ctx.session.context = false
         messages.Settings(ctx.update.callback_query.from.id)
         .then(async data => {
             ctx.editMessageText(data.text, {

@@ -91,8 +91,14 @@ bot.start(async (ctx) => {
 /**
  * @add_channel is message that user call when want to add new channels. Replying with request to enter name
  */
-bot.action('add/channel', (ctx) => actions.add_channel(ctx))
-bot.action('back/to/settings', (ctx) => actions.back_to_settings(ctx))
+bot.action('add/channel', (ctx) => {
+    sessions[ctx.update.callback_query.from.id].context = "add_channel"
+    actions.add_channel(ctx)
+})
+bot.action('back/to/settings', (ctx) => {
+    sessions[ctx.update.callback_query.from.id].context = false
+    actions.back_to_settings(ctx)
+})
 bot.action('back/to/profile', (ctx) => actions.back_to_profile(ctx))
 bot.action('channels', (ctx) => actions.channels(ctx))
 bot.action('edit/channel', (ctx) => actions.edit_channel(ctx))
