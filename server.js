@@ -296,7 +296,7 @@ bot.on('message', async (ctx) => {
             sessions_check_update(from_id, {})
         break
 
-        case '📢 Buy Add': 
+        case '📢 Buy Ad': 
             sessions_check_update(from_id, {})
         break
 
@@ -320,9 +320,9 @@ bot.on('message', async (ctx) => {
                 })
                 break
 
-            case '📢 Buy Add': messages.BuyAdvertising(from_id)
+            case '📢 Buy Ad': messages.BuyAdvertising(from_id)
                 .then(data => {
-                    sessions_check_update(from_id, "buy_add")
+                    sessions_check_update(from_id, "buy_ad")
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
                 .catch(e => {
@@ -360,7 +360,7 @@ bot.on('message', async (ctx) => {
         const context = sessions[from_id].context
         
         /**
-         * @description hanlder for simple message with context: add_channel, set_post_option, buy_add
+         * @description hanlder for simple message with context: add_channel, set_post_option, buy_ad
          */
         switch (context) {
             case 'add_channel':
@@ -430,7 +430,7 @@ bot.on('message', async (ctx) => {
             
                 break                
             
-            case 'buy_add':
+            case 'buy_ad':
                 if (text.indexOf("@") != -1)
                     text = text.split("@")[1]
 
