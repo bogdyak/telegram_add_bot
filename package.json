@@ -10,7 +10,7 @@
   "author": "Bogdan Sizov",
   "license": "ISC",
   "dependencies": {
-    "@aloborio/blockchain": "^0.1.8",
+    "@aloborio/blockchain": "^0.1.9",
     "cote": "^0.21.1",
     "find-free-port": "^2.0.0",
     "mongoose": "^5.7.3",

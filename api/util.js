@@ -25,5 +25,5 @@ module.exports = {
             result = 'year'
 
         return result
-    }
+    },
 }

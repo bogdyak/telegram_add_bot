@@ -279,7 +279,7 @@ module.exports = {
                     'settings.channels.name': name
                 })
 
-		result = result[0]
+		        result = result[0]
 
                 let focus_channel = {}
 

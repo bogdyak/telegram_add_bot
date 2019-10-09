@@ -17,24 +17,46 @@ module.exports = {
         Markup.inlineKeyboard([
             [
                 { text:'Channels', callback_data:'channels' },
+                { text:'Withdraw', callback_data:'withdraw' }
             ],
         ])
     ),
 
     settings: Extra.markup(
         Markup.inlineKeyboard([[
-            { text:'➕ Add channel', callback_data:'add/channel' },
+            { text:'➕ Add channel', callback_data:'before/add/channel' },
             { text:'✏️ Edit channel', callback_data:'edit/channel' }
         ]])
     ),
 
+    before_add_channel: Extra.markup(
+        Markup.inlineKeyboard([
+            [
+                { text:'️ℹ️ Show instruction', callback_data:'show/add/channel/instructions' },
+                { text:'Yes', callback_data:'add/channel' }
+            ],
+            [
+                { text:'Back', callback_data:'back/to/settings' }
+            ]
+        ])
+    ),
+
     add_channel_get: Extra.markup(
-        Markup.inlineKeyboard([{ text:'Back', callback_data:'back/to/settings' }])
+        Markup.inlineKeyboard([{ text:'Back', callback_data:'back/to/before/add/channel' }])
     ),
 
     show_channels: Extra.markup(
         Markup.inlineKeyboard([{ text:'Back', callback_data:'back/to/profile' }])
     ),
+
+    withdraw_max_and_back_to_profile (max) {
+        return Extra.markup(
+            Markup.inlineKeyboard([
+                [{ text:`Withdraw max: ${max}`, callback_data:`withdraw/max` }],
+                [{ text:'Back', callback_data:'back/to/profile' }]
+            ]
+        ))
+    },
 
     show_channels_with_settings: Extra.markup(
         Markup.inlineKeyboard([
@@ -158,6 +180,26 @@ module.exports = {
                     callback_data:`${admin}/declined/post/${channelName}/for/${requester_id}`
                 }
             ]])
+        )
+    },
+
+    help: Extra.markup(
+        Markup.inlineKeyboard([
+            [{ text:'Help add channel', callback_data:`help/add/channel` }]
+        ])
+    ),
+
+    back_to_help: Extra.markup(
+        Markup.inlineKeyboard([
+            [{ text:'Back', callback_data:`back/to/help` }]
+        ])
+    ),
+
+    explorer_url (hash) {
+        return Extra.markup(
+            Markup.inlineKeyboard([
+                [{ text:"View on Minterscan", url:hash }]
+            ])
         )
     }
 }

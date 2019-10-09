@@ -2,15 +2,17 @@
  * @env
  */
 const env = require('./env')
-const crypto = require('crypto')
+
 
 /**
  * @node_modules
  */
 const Telegraf = require('telegraf')
 const session  = require('telegraf/session')
-// const socket   = require('socket.io-client')
 const cote     = require('cote')
+const crypto   = require('crypto')
+const Abr      = require('@aloborio/blockchain/dist/index')
+
 
 /**
  * @connection
@@ -22,6 +24,7 @@ const transaction_responder = new cote.Responder({ name:"server-tx-responder", k
 const pin_requester = new cote.Requester({ name:"server-pin-requester", key:"pin-service" })
 const pin_responder = new cote.Responder({ name:"server-pin-responder", key:"pin-back-service" })
 
+
 /**
  * @custom_modules_apis
  */
@@ -31,11 +34,15 @@ const messages      = require('./api/messages')
 const channel_api   = require('./api/channelApi')
 const actions       = require('./api/actions')
 const lang_logo     = require('./api/language-logo')
+const debug         = require('./api/debug')
 const temp_tx_store = require('./mongoose/EcommTempTxStore')
+const wallet        = require('./api/wallet')
+const abr           = new Abr.default()
+
 
 let sessions = {}
-
 let me = ""
+
 
 const session_check = (id) => {
     if (typeof sessions[id] == "undefined")
@@ -52,6 +59,7 @@ const sessions_check_update = (id, update) => {
     context_check(id)
     sessions[id].context = update
 }
+
 
 bot.use(session())
 bot.use((ctx, next) => {
@@ -71,7 +79,8 @@ bot.telegram.getMe().then(data => {
     me = data.username
 })
 
-bot.telegram.sendMessage("180985993", "Bot restarted")
+// you can put your telegram id here, to get message when bot restarted
+bot.telegram.sendMessage(env.CREATOR, "Bot restarted")
 
 bot.start(async (ctx) => {
     try {
@@ -81,7 +90,7 @@ bot.start(async (ctx) => {
         })
     }
     catch (e) {
-        console.log(e)
+        debug.notifyAndReply(ctx, e)
 
         try {
             if (e.message == "user_exists")
@@ -91,7 +100,7 @@ bot.start(async (ctx) => {
                 ctx.reply('Oops, there is error accured. Please report to @b_sizov')
         }
         catch (e) {
-
+            debug.notifyAndReply(ctx, e)
         }
     }
 })
@@ -99,31 +108,51 @@ bot.start(async (ctx) => {
 /**
  * @add_channel is message that user call when want to add new channels. Replying with request to enter name
  */
-bot.
-action('add/channel', (ctx) => {
+bot
+.action('before/add/channel', (ctx) => actions.before_add_channel(ctx))
+.action('add/channel', (ctx) => {
     sessions_check_update(ctx.update.callback_query.from.id, "add_channel")
     actions.add_channel(ctx)
 })
-bot.
-action('back/to/settings', (ctx) => {
+.action('back/to/help', (ctx) => action.back_to_help(ctx))
+.action('help/add/channel', (ctx) => actions.help_add_channel(ctx))
+.action('show/add/channel/instructions', (ctx) => actions.show_add_channel_instructions(ctx))
+.action('back/to/before/add/channel', (ctx) => {
+    sessions_check_update(ctx.update.callback_query.from.id, {})
+    actions.back_to_before_add_channel(ctx)
+})
+.action('back/to/settings', (ctx) => {
     sessions_check_update(ctx.update.callback_query.from.id, {})
     actions.back_to_settings(ctx)
 })
-bot.action('back/to/profile', (ctx) => actions.back_to_profile(ctx))
-bot.action('channels', (ctx) => actions.channels(ctx))
-bot.action('edit/channel', (ctx) => actions.edit_channel(ctx))
-bot.action('back/buy/ad', (ctx) => {
+.action('back/to/profile', (ctx) => {
+    sessions_check_update(ctx.update.callback_query.from.id, {})
+    actions.back_to_profile(ctx)
+})
+.action('channels', (ctx) => actions.channels(ctx))
+.action('edit/channel', (ctx) => actions.edit_channel(ctx))
+.action('back/buy/ad', (ctx) => {
     messages.BuyAdvertising(ctx.update.callback_query.from.id)
     .then(data => {
         sessions_check_update(ctx.update.callback_query.from.id, "buy_ad")
         ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
     })
-    .catch(e => {
-
-    })
+    .catch(e => debug.notifyAndReply(ctx, e))
 })
-
-bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
+.action('withdraw', (ctx) => {
+    sessions_check_update(ctx.update.callback_query.from.id, "withdraw")
+    actions.withdraw(ctx)
+})
+.action('withdraw/max', (ctx) => {
+    wallet.withdraw(
+        ctx,
+        sessions[ctx.update.callback_query.from.id].context,
+        sessions[ctx.update.callback_query.from.id].context.max_amount
+    )
+    sessions_check_update(ctx.update.callback_query.from.id, {})
+})
+.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
+    console.log(ctx)
     const data    = ctx.update.callback_query.data.split("/")
     const from_id = ctx.update.callback_query.from.id
 
@@ -136,9 +165,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 parse_mode: "HTML"
             })
         })
-        .catch(e => {
-            ctx.editMessageText(e.text)
-        })
+        .catch(e => debug.notifyAndReply(ctx, e))
     }
 
     else if (data[0]+data[2]+data[3] == "editchannellanguage") {
@@ -150,10 +177,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 parse_mode: "HTML"
             })
         })
-        .catch(e => {
-            console.log(e)
-            ctx.editMessageText(e.text)
-        })
+        .catch(e => debug.notifyAndReply(ctx, e))
     }
 
     else if (data[0]+data[1]+data[2] == "setchannellanguage") {
@@ -173,10 +197,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 })
             }, 4000)
         })
-        .catch(e => {
-            console.log(e)
-            ctx.editMessageText(e.text)
-        })
+        .catch(e => debug.notifyAndReply(ctx, e))
     }
 
     else if (data[0]+data[2]+data[3] == 'editpostoptions') {
@@ -189,10 +210,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 parse_mode: "HTML"
             })
         })
-        .catch(e => {
-            console.log(e)
-            ctx.editMessageText(e.text)
-        })
+        .catch(e => debug.notifyAndReply(ctx, e))
     }
 
     else if (data[0]+data[1]+data[2] == "addpostoption") {
@@ -207,10 +225,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 parse_mode: "HTML"
             })
         })
-        .catch(e => {
-            console.log(e)
-            ctx.editMessageText(e.text)
-        })
+        .catch(e => debug.notifyAndReply(ctx, e))
     }
 
     else if (data[0]+data[1]+data[2] == "chooseadvoption") {
@@ -228,10 +243,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
                 parse_mode: "HTML"
             })
         })
-        .catch(e => {
-            console.log(e)
-            ctx.editMessageText(e.text)
-        })
+        .catch(e => debug.notifyAndReply(ctx, e))
     }
 
     else if (data[1]+data[2]+data[4] == "approvedpostfor") {
@@ -281,7 +293,7 @@ bot.action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
             ctx.telegram.sendPhoto(data[5], `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
         }
         catch (e) {
-            console.log(e)
+            debug.notifyAndReply(ctx, e)
         }
     }
 
@@ -312,6 +324,9 @@ bot.on('message', async (ctx) => {
             sessions_check_update(from_id, {})
         break
 
+        case 'ℹ️ Help':
+            sessions_check_update(from_id, {})
+        break
     }
 
     if (!Object.keys(sessions[from_id].context).length && typeof text != 'undefined' && text) {
@@ -323,20 +338,16 @@ bot.on('message', async (ctx) => {
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
-                .catch(e => {
-
-                })
-                break
+                .catch(e => debug.notifyAndReply(ctx, e))
+            break
 
             case '📢 Buy Ad': messages.BuyAdvertising(from_id)
                 .then(data => {
                     sessions_check_update(from_id, "buy_ad")
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
-                .catch(e => {
-
-                })
-                break
+                .catch(e => debug.notifyAndReply(ctx, e))
+            break
 
             /**
              * @Settings is where user can change language and some more configurations
@@ -345,19 +356,15 @@ bot.on('message', async (ctx) => {
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
-                .catch(e => {
-
-                })
-                break
+                .catch(e => debug.notifyAndReply(ctx, e))
+            break
 
             case 'ℹ️ Help': messages.Help()
                 .then(data => {
                     ctx.replyWithHTML(data.text, { reply_markup: data.reply_markup })
                 })
-                .catch(e => {
-
-                })
-                break
+                .catch(e => debug.notifyAndReply(ctx, e))
+            break
         }
     }
 
@@ -397,15 +404,17 @@ bot.on('message', async (ctx) => {
                     )
                 })
                 .catch(e => {
-                    console.log(202, e)
                     if (e.message == 'error_saving_channel') 
                         ctx.reply(`There is error accured while connecting @${res.chat.username} to your profile`)
                     
                     else if (e.message == "channel_exists")
                         ctx.reply(`${text} channel already connected to your profile`)
+
+                    else
+                        debug.notifyAndReply(ctx, e)
                 })
                     
-                break
+            break
 
             case 'set_post_option':
                 const channelName = sessions[from_id].context_1
@@ -422,9 +431,7 @@ bot.on('message', async (ctx) => {
                             })  
                         }, 3000)
                     })
-                    .catch(e => {
-                        console.log(e)
-                    })
+                    .catch(e => debug.notifyAndReply(ctx, e))
                 }
                 else {
                     ctx.replyWithHTML(
@@ -436,7 +443,7 @@ bot.on('message', async (ctx) => {
                     )
                 }
             
-                break                
+            break                
             
             case 'buy_ad':
                 if (text.indexOf("@") != -1)
@@ -462,69 +469,121 @@ bot.on('message', async (ctx) => {
                         )
                     }
                 })
-                .catch(async err => {
+                .catch(e => {
                     if (err.status == "not_connected") {
                         ctx.replyWithHTML(
                             `@${text} channel not connected. You can ask owner of this channel to connect`
                         )
                     }
+                    else 
+                        debug.notifyAndReply(ctx, e)
                 })
 
-                break
+            break
+
+            case 'withdraw':
+                try {
+                    if (text.indexOf('Mx') != -1) {
+                        const profile = await db_api.get_user(from_id)
+                        const wallet = profile.settings.wallet.public
+                        
+                        if (text == wallet) {
+                            ctx.reply(`Provided address is same as current. Please provide another one.`, { parse_mode:"HTML" })
+                        }
+                        else {
+                            sessions_check_update(from_id, {
+                                type: "withdraw",
+                                address: text,
+                                profile: profile
+                            })
+                            const balance = await abr.MINTER.getBalance(wallet, 18)
+                            const max_amount = balance - 0.01
+                            
+                            sessions[from_id].context.max_amount = max_amount
+
+                            ctx.reply(
+                                `Please send amount to withdraw.\n\n<b>Maximum amount: ~ ${max_amount.toFixed(3)}...</b>`,
+                                {
+                                    parse_mode:"HTML",
+                                    reply_markup:markup_api.withdraw_max_and_back_to_profile(max_amount).reply_markup
+                                }
+                            )
+                        }
+                    }
+                    else {
+                        ctx.reply(`Entered address is <b>invalid</b>.\nPlease enter valid.`, { parse_mode:"HTML" })
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    debug.notifyAndReply(ctx, e)
+                }
+
+            break
         }
 
         /**
          * @description handler for client has sent content of post
          */
-        if (typeof context == "object" && context.type == "option_selected") {
-            const profile   = context.profile
-            const lang      = profile.config.channel_language
-            const chat_name = context.profile.channel.name
-            let creator_id = ""
-            
-            if (text.localeCompare(lang) == 1) {
-                const admins     = await ctx.telegram.getChatAdministrators("@"+chat_name)
-                const creator    = await channel_api.getChatCreatorUsername(admins)
-                creator_id       = await channel_api.getChatCreator(admins)
-                const msg_data   = await messages.AdminPostApproval({
-                    text: text,
-                    admin: creator,
-                    channelName: chat_name,
-                    requester: ctx.update.message.from.username,
-                    requester_id: from_id
-                })
+        if (typeof context == "object") {
+            const profile = context.profile
 
-                /**
-                 * I have to localy sync client and admin sessions
-                 */
-                sessions[from_id].context.text = text
-                sessions_check_update(creator_id, sessions[from_id].context)
-                
-                ctx.telegram.sendMessage(
-                    creator_id,
-                    msg_data.text,
-                    {
-                        parse_mode: "HTML",
-                        reply_markup: msg_data.reply_markup
+            switch (context.type) {
+                case "option_selected" :
+                    const lang      = profile.config.channel_language
+                    const chat_name = context.profile.channel.name
+                    let creator_id = ""
+                    
+                    if (text.localeCompare(lang) == 1) {
+                        const admins     = await ctx.telegram.getChatAdministrators("@"+chat_name)
+                        const creator    = await channel_api.getChatCreatorUsername(admins)
+                        creator_id       = await channel_api.getChatCreator(admins)
+                        const msg_data   = await messages.AdminPostApproval({
+                            text: text,
+                            admin: creator,
+                            channelName: chat_name,
+                            requester: ctx.update.message.from.username,
+                            requester_id: from_id
+                        })
+        
+                        /**
+                         * I have to localy sync client and admin sessions
+                         */
+                        sessions[from_id].context.text = text
+                        sessions_check_update(creator_id, sessions[from_id].context)
+                        
+                        ctx.telegram.sendMessage(
+                            creator_id,
+                            msg_data.text,
+                            {
+                                parse_mode: "HTML",
+                                reply_markup: msg_data.reply_markup
+                            }
+                        )
+                        ctx.telegram.sendMessage(
+                            from_id,
+                            `<b>Please wait until @${creator} verify your advertising post</b>\n\nI will notify you in the positive and negative case.`,
+                            { parse_mode: "HTML" }
+                        )
                     }
-                )
-                ctx.telegram.sendMessage(
-                    from_id,
-                    `<b>Please wait until @${creator} verify your advertising post</b>\n\nI will notify you in the positive and negative case.`,
-                    { parse_mode: "HTML" }
-                )
-            }
-            else {
-                ctx.telegram.sendMessage(
-                    from_id,
-                    `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
-                    { parse_mode: "HTML" }
-                )
+                    else {
+                        ctx.telegram.sendMessage(
+                            from_id,
+                            `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
+                            { parse_mode: "HTML" }
+                        )
+                        
+                        sessions_check_update(from_id, {})
+                        sessions_check_update(creator_id, {})
+                    }
+                break
                 
-                sessions_check_update(from_id, {})
-                sessions_check_update(creator_id, {})
+                case "withdraw" :
+                    wallet.withdraw(ctx, sessions[from_id].context, text)
+                    sessions_check_update(from_id, {})
+                break
             }
-        }
+        }       
     }
 })
 
@@ -562,8 +621,7 @@ transaction_responder.on('transaction_submited', async (msg) => {
         
     }
     catch (e) {
-        console.log(e)
-        await bot.telegram.message(msg.data.client, `Error accured while posting your advertisment, Please contact @b_sizov for support.`)
+        debug.notifyAndReply(ctx, e)
     }
 })
 
@@ -573,11 +631,8 @@ pin_responder.on('unpin_post', async (msg) => {
         await db_api.changeChannelStatus(msg.data.channel)
     }
     catch (e) {
-        console.log(e)
-        await bot.telegram.message(msg.data.admin, `Error while trying to unpin ${msg.data.pinned_msg_id} from @${msg.data.channel} channel`)
+        debug.notifyAndReply(ctx, e)
     }
 })
-
-bot.help((ctx) => ctx.reply('Help will be there soon'))
 
 bot.launch()

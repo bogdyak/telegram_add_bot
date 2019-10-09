@@ -81,28 +81,32 @@ I am in beta version, but doing my best to be good friend for you. If you have i
     Help () {
         return new Promise(async (resolve, reject) => {
             resolve({
+                text: 'Please select one from the list',
+                reply_markup: markup_api.help.reply_markup
+            })
+        })
+    },
+    
+    HelpAddChannel () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
                 text: `
 <b>How to add Teleads to channel</b>
 
-1) Add bot as administrator of channel
-2) Grant rights to:
-   ✅ Change channel info
-   ✅ Post messages
-   ✅ Edit messages of others
-   ✅ Delete messages of others
-   ❌ Add members
-   ❌ Add new admins
-3) Click Save
+1) Go to ☸ Settings
+2) Go to ➕ Add channel
+3) Go to ℹ️ Show instruction and follow steps
+`,
+                reply_markup: markup_api.back_to_help.reply_markup
+            })
+        })
+    },
 
-4) Go to ☸ Settings
-5) Go to ➕ Add channel
-6) Send the channel username: @example
-7) Click ✏️ Configure channels
-8) Select channel from list to edit
-9) Click ➕ Add post option
-10) Click ➕ Add new
-11) Type example 1 day 1000; Which means 1 day duration of pinned message. Price 1000 BIP
-`
+    BeforeAddChannel () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text:`To add bot to channel you <b>have to</b> add it as <b>administrator</b> of channel.\nHave you done it?`,
+                reply_markup: markup_api.before_add_channel.reply_markup
             })
         })
     },
@@ -111,10 +115,25 @@ I am in beta version, but doing my best to be good friend for you. If you have i
         return new Promise(async (resolve, reject) => {
             resolve({
                 text: `
-Please send me the <b>username</b> of the channel.
-You can use <code>@channelname</code> or simply <code>channelname</code>
+Please send me the <b>username</b> of the channel you want to connect to bot.
+Example: <code>@channelname</code> or <code>channelname</code>
 `,
                 reply_markup: markup_api.add_channel_get.reply_markup
+            })
+        })
+    },
+
+    AddChannelInstruction () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `
+1) Click menu in the top right corner
+2) Click <code>Administrators</code>
+3) Click <code>Add Administrator</code>
+4) Find @tele_ads_bot and click on it in search results
+5) Set permisions to all except <code>Add members</code> and <code>Add new admins</code>
+6) Make sure that bot as administrator been added.
+`
             })
         })
     },
@@ -124,7 +143,8 @@ You can use <code>@channelname</code> or simply <code>channelname</code>
             resolve({
                 text: `
 Please send me the name of the channel where you want to buy advertising
-You can send as <code>@channelname</code> or simply <code>channelname</code>
+
+Example: <code>@channelname</code> or <code>channelname</code>
 `,
             })
         })
@@ -336,6 +356,36 @@ ${text}
                 `,
                 reply_markup: markup_api.post_text_admin_approval({ admin, channelName, requester_id }).reply_markup
             })
+        })
+    },
+
+    Withdraw (id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const profile = await db_api.get_user(id)
+                const balance = await abr.MINTER.getBalance(profile.settings.wallet.public, 3)
+
+                if (Number(balance) > 0.02) {
+                    resolve({
+                        text:`Please send me Minter address which should receive withdrawal amount`,
+                        reply_markup: markup_api.show_channels.reply_markup
+                    })
+                }
+                else {
+                    resolve({
+                        text: `⚠️ There are not enough funds on your balance. \n\nThe minimum withdrawal amount is 0.01 BIP - 0.02 should be on balance.`,
+                        reply_markup: markup_api.show_channels.reply_markup
+                    })
+                }
+
+            }
+            catch (e) {
+                console.log(e)
+                resolve({
+                    text: `Oops:\n\n<code>${e}</code>`,
+                    reply_markup: markup_api.show_channels.reply_markup
+                })
+            }
         })
     }
 } 
