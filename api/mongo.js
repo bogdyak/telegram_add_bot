@@ -1,7 +1,7 @@
 /**
  * @modules
  */
-const Abr      = require('@aloborio/blockchain/dist/index')
+const Minter = require('@aloborio/blockchain/dist/index')
 
 
 /**
@@ -12,7 +12,7 @@ const settings_schema     = require('../mongoose/settings-schema').model
 const channel_conf_schema = require('../mongoose/channel-settings-schema').model
 const channel_object      = require('../mongoose/channel-schema').model
 const util_api            = require('../api/util')
-const abr = new Abr.default()
+const minter              = new Minter.default()
 
 
 module.exports = {
@@ -25,7 +25,7 @@ module.exports = {
             catch (e) {
                 if (e.message == 'no_user') {
                     const date = new Date()
-                    const ss   = new settings_schema({ language_code, wallet:await abr.MINTER.wallet.create() })
+                    const ss   = new settings_schema({ language_code, wallet:await minter.wallet.create() })
                     const ps   = new profile_schema({ _id:id, first_name, second_name, username, date, settings:ss })
         
                     ps.save((e, r) => {

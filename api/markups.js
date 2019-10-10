@@ -16,9 +16,12 @@ module.exports = {
     profile: Extra.markup(
         Markup.inlineKeyboard([
             [
-                { text:'Channels', callback_data:'channels' },
-                { text:'Withdraw', callback_data:'withdraw' }
+                { text:'💼 Channels', callback_data:'channels' }
             ],
+            [
+                { text:'🔼 Withdraw', callback_data:'withdraw' },
+                { text:'🔽 Top up', callback_data:'deposit' }
+            ]
         ])
     ),
 
@@ -32,35 +35,35 @@ module.exports = {
     before_add_channel: Extra.markup(
         Markup.inlineKeyboard([
             [
-                { text:'️ℹ️ Show instruction', callback_data:'show/add/channel/instructions' },
+                { text:'️ℹ️ No, show instruction', callback_data:'show/add/channel/instructions' },
                 { text:'Yes', callback_data:'add/channel' }
             ],
             [
-                { text:'Back', callback_data:'back/to/settings' }
+                { text:'↩️ Back', callback_data:'back/to/settings' }
             ]
         ])
     ),
 
     add_channel_get: Extra.markup(
-        Markup.inlineKeyboard([{ text:'Back', callback_data:'back/to/before/add/channel' }])
+        Markup.inlineKeyboard([{ text:'↩️ Back', callback_data:'back/to/before/add/channel' }])
     ),
 
     show_channels: Extra.markup(
-        Markup.inlineKeyboard([{ text:'Back', callback_data:'back/to/profile' }])
+        Markup.inlineKeyboard([{ text:'↩️ Back', callback_data:'back/to/profile' }])
     ),
 
     withdraw_max_and_back_to_profile (max) {
         return Extra.markup(
             Markup.inlineKeyboard([
                 [{ text:`Withdraw max: ${max}`, callback_data:`withdraw/max` }],
-                [{ text:'Back', callback_data:'back/to/profile' }]
+                [{ text:'↩️ Back', callback_data:'back/to/profile' }]
             ]
         ))
     },
 
     show_channels_with_settings: Extra.markup(
         Markup.inlineKeyboard([
-            { text:'Back', callback_data:'back/to/profile' },
+            { text:'↩️ Back', callback_data:'back/to/profile' },
             { text:'☸ Settings', callback_data:'back/to/settings' }
         ])
     ),
@@ -69,7 +72,7 @@ module.exports = {
         let array = list.map(el => {
             return [{ text:el.name, callback_data:`edit/channel/${el.name}` }]
         })
-        array.push([{ text:'Back', callback_data: `back/to/settings` }])
+        array.push([{ text:'↩️ Back', callback_data: `back/to/settings` }])
 
         return Extra.markup(
             Markup.inlineKeyboard(array)
@@ -87,7 +90,7 @@ module.exports = {
             Markup.inlineKeyboard([
                 [{ text:'✏️ Edit channel language', callback_data:`edit/${channelName}/channel/language` }],
                 [{ text:'➕ Add post option', callback_data:`edit/${channelName}/post/options` }],
-                [{ text:'Back', callback_data:`edit/channel` }]
+                [{ text:'↩️ Back', callback_data:`edit/channel` }]
             ])
         )
     },
@@ -112,7 +115,7 @@ module.exports = {
         })
 
         row.push([{ text:'➕ Add new', callback_data: `add/post/option/${channelName}` }])
-        row.push([{ text:'Back', callback_data: `edit/channel` }])
+        row.push([{ text:'↩️ Back', callback_data: `edit/channel` }])
 
         return Extra.markup(
             Markup.inlineKeyboard(row)
@@ -140,7 +143,7 @@ module.exports = {
                 row.push(col)
             }
         })
-        row.push([{ text:'Back', callback_data: `edit/channel/${channelName}` }])
+        row.push([{ text:'↩️ Back', callback_data: `edit/channel/${channelName}` }])
         
         return Extra.markup(
             Markup.inlineKeyboard(row)
@@ -149,7 +152,7 @@ module.exports = {
 
     edit_channel_back (name) {
         return Extra.markup(
-            Markup.inlineKeyboard([{ text:'Back', callback_data: `edit/${name}/post/options` }])
+            Markup.inlineKeyboard([{ text:'↩️ Back', callback_data: `edit/${name}/post/options` }])
         )
     },
 
@@ -161,7 +164,7 @@ module.exports = {
             }]
         })
 
-        array.push([{ text:'Back', callback_data: `back/by/ad` }])
+        array.push([{ text:'↩️ Back', callback_data: `back/by/ad` }])
 
         return Extra.markup(
             Markup.inlineKeyboard(array)
@@ -172,11 +175,11 @@ module.exports = {
         return Extra.markup(
             Markup.inlineKeyboard([[
                 {
-                    text:'Approve',
+                    text:'✅ Approve',
                     callback_data:`${admin}/approved/post/${channelName}/for/${requester_id}`
                 },
                 {
-                    text:'Decline',
+                    text:'❌ Decline',
                     callback_data:`${admin}/declined/post/${channelName}/for/${requester_id}`
                 }
             ]])
@@ -185,13 +188,14 @@ module.exports = {
 
     help: Extra.markup(
         Markup.inlineKeyboard([
-            [{ text:'Help add channel', callback_data:`help/add/channel` }]
+            [{ text:'Help add channel', callback_data:`help/add/channel` }],
+            [{ text:'Withdrawing funds', callback_data:`help/withdraw` }]
         ])
     ),
 
     back_to_help: Extra.markup(
         Markup.inlineKeyboard([
-            [{ text:'Back', callback_data:`back/to/help` }]
+            [{ text:'↩️ Back', callback_data:`back/to/help` }]
         ])
     ),
 
@@ -200,6 +204,31 @@ module.exports = {
             Markup.inlineKeyboard([
                 [{ text:"View on Minterscan", url:hash }]
             ])
+        )
+    },
+
+    choose_withdraw_coin (balance) {
+        let array = balance.map((el) => {
+            console.log(el)
+            if (el.coin != "BIP") {
+                if (el.sellPrice > 0.01)
+                    return [{
+                        text:el.coin,
+                        callback_data: `withdraw/currency/${el.coin}`
+                    }]
+            }
+
+            else if (el.coin == "BIP" && Number(el.amount) > 0.01)
+                return [{
+                    text:el.coin,
+                    callback_data: `withdraw/currency/${el.coin}`
+                }]
+        })
+
+        array.push([{ text:'↩️ Back', callback_data:'back/to/profile' }])
+
+        return Extra.markup(
+            Markup.inlineKeyboard(array)
         )
     }
 }

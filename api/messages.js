@@ -1,9 +1,10 @@
 const db_api     = require('./mongo')
 const markup_api = require('./markups')
-const Abr        = require('@aloborio/blockchain/dist/index')
+const Minter     = require('@aloborio/blockchain/dist/index')
 const lang_logo  = require('./language-logo')
+const request    = require('request')
 
-const abr = new Abr.default()
+const minter = new Minter.default()
 
 module.exports = {
     Welcome () {
@@ -25,7 +26,7 @@ For example you can show ad during 21 day.
 
 You can add as many channels as you wish and get paid from all of them.
 
-I am in beta version, but doing my best to be good friend for you. If you have issues with me, please repost my father - @b_sizov            
+I am in beta version, but doing my best to be good friend for you. If you have issues with me, please report my father - @b_sizov            
                 `
             })
         })
@@ -35,21 +36,37 @@ I am in beta version, but doing my best to be good friend for you. If you have i
         return new Promise(async (resolve, reject) => {
             try {
                 const profile = await db_api.get_user(id)
-                const balance = await abr.MINTER.getBalance(profile.settings.wallet.public, 3)
+                const balance = await minter.getBalanceAll(profile.settings.wallet.public)
 
-                resolve({
-                    text:`
+                let sum = 0
+                for (let i =0 ; i < balance.length; i++) {
+                    if (balance[i].coin == "BIP")
+                        sum += Number(balance[i].amount)
+
+                    else {
+                        const worth = await minter.getSellPrice(balance[i].coin, balance[i].amount, "BIP")
+                        sum += Number(worth) / Math.pow(10, 18)
+                    }
+                }
+
+                request.get('https://api.bip.dev/api/price', (err, res, body) => {
+                    body = JSON.parse(body)
+                    const price = body.data.price / 10000
+                    const dollar_worth = sum * price
+
+                    resolve({
+                        text:`
 <b>ACCOUNT DETAILS</b>
                         
 <b>Wallet:</b>  ${profile.settings.wallet.public}
-<b>Balance:</b>  ${balance} BIP
+<b>Balance :</b>  ${sum.toFixed(3)} BIP  ($  ${dollar_worth.toFixed(3)})
 
 <b>Language:</b>  ${profile.settings.language_code} ${lang_logo[profile.settings.language_code]}
 
 <b>Connected channels:</b>  ${profile.settings.channels.length}
-
-                    `,
-                    reply_markup: markup_api.profile.reply_markup
+                        `,
+                        reply_markup: markup_api.profile.reply_markup
+                    })
                 })
             }
             catch (e) {
@@ -96,6 +113,21 @@ I am in beta version, but doing my best to be good friend for you. If you have i
 1) Go to ☸ Settings
 2) Go to ➕ Add channel
 3) Go to ℹ️ Show instruction and follow steps
+`,
+                reply_markup: markup_api.back_to_help.reply_markup
+            })
+        })
+    },
+
+    HelpWithdraw () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `
+<b>How to withdraw funds</b>
+
+1) Go to 👨‍💻 Profile
+2) Go to 👛 Withdraw
+3) Follow steps
 `,
                 reply_markup: markup_api.back_to_help.reply_markup
             })
@@ -363,12 +395,24 @@ ${text}
         return new Promise(async (resolve, reject) => {
             try {
                 const profile = await db_api.get_user(id)
-                const balance = await abr.MINTER.getBalance(profile.settings.wallet.public, 3)
+                const balance = await minter.getBalanceAll(profile.settings.wallet.public)
 
-                if (Number(balance) > 0.02) {
+                let sum = 0
+                for (let i =0 ; i < balance.length; i++) {
+                    if (balance[i].coin == "BIP")
+                        sum += Number(balance[i].amount)
+
+                    else {
+                        const worth = await minter.getSellPrice(balance[i].coin, balance[i].amount, "BIP")
+                        balance[i].sellPrice = Number(worth) / Math.pow(10, 18)
+                        sum += Number(worth) / Math.pow(10, 18)
+                    }
+                }
+
+                if (Number(sum) > 0.02) {
                     resolve({
-                        text:`Please send me Minter address which should receive withdrawal amount`,
-                        reply_markup: markup_api.show_channels.reply_markup
+                        text: `Please choose coin to withdraw`,
+                        reply_markup: markup_api.choose_withdraw_coin(balance).reply_markup
                     })
                 }
                 else {
@@ -378,6 +422,27 @@ ${text}
                     })
                 }
 
+            }
+            catch (e) {
+                console.log(e)
+                resolve({
+                    text: `Oops:\n\n<code>${e}</code>`,
+                    reply_markup: markup_api.show_channels.reply_markup
+                })
+            }
+        })
+    },
+
+    Deposit (id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const profile = await db_api.get_user(id)
+
+                resolve({
+                    text: `Please send any Minter currencies to address\n\n\<code>${profile.settings.wallet.public}</code>`,
+                    extra: profile.settings.wallet.public,
+                    reply_markup: markup_api.show_channels.reply_markup
+                })
             }
             catch (e) {
                 console.log(e)

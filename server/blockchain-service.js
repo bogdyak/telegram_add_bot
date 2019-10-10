@@ -2,7 +2,7 @@
  * @modules
  */
 const cote  = require('cote')
-const Abr   = require('@aloborio/blockchain/dist/index')
+const Minter   = require('@aloborio/blockchain/dist/index')
 const env  = require('../env')
 
 /**
@@ -10,8 +10,7 @@ const env  = require('../env')
  */
 const requester = new cote.Requester({ name:"blockchain-service-requester", key:"transactions" });
 
-const abr = new Abr.default()
-
+const minter = new Minter.default()
 
 module.exports = class Watcher {
     constructor ({ order_id, profile, chain, temp_wallet, amount, final_wallet, post_details }) {
@@ -30,38 +29,43 @@ module.exports = class Watcher {
     }
 
     async run () {
+        const payment_confirmed = async (coin) => {
+            requester.send({ type:"transaction_submited", data:this.post_details })
+            this.transaction_submited_msg_sent = true
+
+            const amount_to_forward = this.amount - (this.amount / 100 * env.FEE)
+
+            const payment = await minter.payment(this.final_wallet, amount_to_forward, coin)
+            const signed = await minter.wallet.signTransaction(payment, this.findKey())
+            
+            minter.submitSigned(signed)
+        }
+        
         try {
             if (this.expirationCalc < 1800000) {
                 this.expirationCalc += 1000
 
-                let balance = await abr[this.chain].getBalance(this.temp_wallet, 18)
-                
-                balance = Number(balance).toFixed(5)
+                let balance = await minter.getBalanceAll(this.temp_wallet)
 
-                if (Number(balance) == Number(this.amount) && !this.transaction_submited_msg_sent) {
-                    const history = await abr[this.chain].getHistory(this.temp_wallet)
-
-                    /**
-                     * @DEV add here sending history[0] to stats 
-                     */
-                    requester.send({ type:"transaction_submited", data:this.post_details })
-                    this.transaction_submited_msg_sent = true
-
-                    const payment = await abr[this.chain].payment(this.final_wallet, this.amount / (1 + env.FEE))
-                    
-                    const signed = await abr[this.chain].wallet.signTransaction(payment, this.findKey())
-                    
-                    abr[this.chain].submitSigned(signed)
-                    .on('confirmation', (data) => {
-                        /**
-                         * save stats
-                         */
-                    })
-                    .on('error', (e) => {
-                        
-                    })
+                for (let i = 0; i < balance.length; i++) {
+                    if (balance[i].coin == "BIP") {
+                        const _balance = balance[i].amount
+                        if (Number(_balance) >= Number(this.amount) && !this.transaction_submited_msg_sent) {
+                            this.returned = true
+                            payment_confirmed("BIP")
+                        }
+                    }
+                    else {
+                        const value = await minter.getSellPrice(balance[i].coin, balance[i].amount, "BIP")
+                        const _value = Math.round(value/Math.pow(10, 18) * 100) / 100
+                        if (Number(_value) >= Number(this.amount) && !this.transaction_submited_msg_sent) {
+                            this.returned = true
+                            payment_confirmed(balance[i].coin)
+                        }
+                    }
                 }
-                else {
+
+                if (!this.returned) {
                     let that = this
                     setTimeout(function () {
                         that.run()
