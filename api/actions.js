@@ -241,26 +241,6 @@ module.exports = {
             const updated_profile = await db_api.get_user(profile.profile.id)
             const requester = await db_api.get_user(requester_id)
             const balance = await minter.getBalance(requester.settings.wallet.public, 3)
-        
-            if (balance < context.amount) {
-                ctx.telegram.sendMessage(
-                    data[5],
-                    `Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
-                    { parse_mode: "HTML" }
-                )
-                ctx.telegram.sendPhoto(data[5], `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
-            }
-            else {
-                const to      = wallet_to_watch.MINTER.public
-
-                const payment = await minter.payment(to, context.amount)
-                const signed  = await minter.wallet.signTransaction(payment, wallet_to_watch.MINTER.private)
-                                    
-                minter.submitSigned(signed)
-                .on('error', (e) => {
-                    debug.notifyAndReply(ctx, e)
-                })
-            }
 
             minter_requester.send({ type:"start_watching", data: {
                 order_id: temp_tx_result.id,
@@ -279,6 +259,33 @@ module.exports = {
                     hash: crypto.randomBytes(8).toString('hex')
                 }
             }})
+        
+            if (balance < context.amount) {
+                ctx.telegram.sendMessage(
+                    data[5],
+                    `Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
+                    { parse_mode: "HTML" }
+                )
+                ctx.telegram.sendPhoto(data[5], `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
+            }
+            else {
+                const to      = wallet_to_watch.MINTER.public
+                const payment = await minter.payment(to, context.amount)
+                const signed  = await minter.wallet.signTransaction(payment, requester.settings.wallet.private)
+
+                ctx.telegram.sendMessage(
+                    data[5],
+                    `Paying ${context.amount} BIP from internal wallet, please wait...`
+                )                
+
+                minter.submitSigned(signed)
+                .on('confirmation', (data) => {
+                    console.log(data)
+                })
+                .on('error', (e) => {
+                    debug.notifyAndReply(ctx, e)
+                })
+            }
         }
         catch (e) {
             debug.notifyAndReply(ctx, e)

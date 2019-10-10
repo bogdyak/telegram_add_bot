@@ -65,7 +65,7 @@ I am in beta version, but doing my best to be good friend for you. If you have i
 
 <b>Connected channels:</b>  ${profile.settings.channels.length}
                         `,
-                        reply_markup: markup_api.profile.reply_markup
+                        reply_markup: markup_api.profile(profile.settings.wallet.public).reply_markup
                     })
                 })
             }

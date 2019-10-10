@@ -13,17 +13,22 @@ module.exports = {
         .resize()
         .extra(),
         
-    profile: Extra.markup(
-        Markup.inlineKeyboard([
-            [
-                { text:'💼 Channels', callback_data:'channels' }
-            ],
-            [
-                { text:'🔼 Withdraw', callback_data:'withdraw' },
-                { text:'🔽 Top up', callback_data:'deposit' }
-            ]
-        ])
-    ),
+    profile (address) {
+        return Extra.markup(
+            Markup.inlineKeyboard([
+                [
+                    { text:'💼 Channels', callback_data:'channels' }
+                ],
+                [
+                    { text: "Account on Minterscan", url:`https://minterscan.net/address/${address}` }
+                ],
+                [
+                    { text:'🔼 Withdraw', callback_data:'withdraw' },
+                    { text:'🔽 Top up', callback_data:'deposit' }
+                ]
+            ])
+        )
+    },
 
     settings: Extra.markup(
         Markup.inlineKeyboard([[
