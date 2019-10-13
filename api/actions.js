@@ -296,7 +296,7 @@ module.exports = {
                 }
             }})
         
-            if (balance < context.amount) {
+            if (Number(balance) < Number(context.amount)) {
                 ctx.telegram.sendMessage(
                     data[5],
                     `⚠️ Not enough funds on internal wallet ⚠️ \n\nPlease send <b>${context.amount} BIP or equivalent of Custom Minter coins</b> to the following address`,

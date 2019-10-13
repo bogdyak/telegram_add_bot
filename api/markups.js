@@ -215,7 +215,7 @@ module.exports = {
     choose_withdraw_coin (balance) {
         let array = balance.map((el) => {
             if (el.coin != "BIP") {
-                if (el.sellPrice > 0.01)
+                if (Number(el.sellPrice) > 0.01)
                     return [{
                         text:el.coin,
                         callback_data: `withdraw/currency/${el.coin}`

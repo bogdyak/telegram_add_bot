@@ -42,7 +42,7 @@ module.exports = class Watcher {
         }
         
         try {
-            if (this.expirationCalc < 1800000) {
+            if (Number(this.expirationCalc) < 1800000) {
                 this.expirationCalc += 1000
 
                 let balance = await minter.getBalanceAll(this.temp_wallet)
