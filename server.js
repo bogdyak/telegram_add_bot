@@ -101,7 +101,7 @@ bot.start(async (ctx) => {
             sessions_check_update(from_id, res)
             if (!res.channel.status) {
                 ctx.replyWithHTML(
-                    `Please choose duration of post`,
+                    `Please select a post option suitable by the duration and price.`,
                     {
                         reply_markup: markup_api.get_post_options(ctx.startPayload, res.config.post_options).reply_markup,
                         parse_mode: "HTML"
@@ -471,7 +471,7 @@ bot.on('message', async (ctx) => {
                     sessions_check_update(from_id, res)
                     if (!res.channel.status) {
                         ctx.replyWithHTML(
-                            `Please choose duration of post`,
+                            `Please select a post option suitable by the duration and price.`,
                             {
                                 reply_markup: markup_api.get_post_options(text, res.config.post_options).reply_markup,
                                 parse_mode: "HTML"

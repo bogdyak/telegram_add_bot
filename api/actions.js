@@ -238,6 +238,13 @@ module.exports = {
             
             const requester_id = data[5]
 
+            ctx.editMessageText(
+                `Client notified ❗ \n\nYou can safely leave this chat. Post will be automatically posted after you get paid. `,
+                {
+                    parse_mode: "HTML"
+                }
+            )
+
             const temp_tx_result = await tx_store.methods.set({
                 duration: context.duration,
                 amount: context.amount,
@@ -275,7 +282,7 @@ module.exports = {
             if (balance < context.amount) {
                 ctx.telegram.sendMessage(
                     data[5],
-                    `⚠️ Not enough funds on internal wallet ⚠️ \n\nPlease send <b>${context.amount} BIP</b> to \n<code></code>`,
+                    `⚠️ Not enough funds on internal wallet ⚠️ \n\nPlease send <b>${context.amount} BIP</b> to the following address`,
                     { parse_mode: "HTML" }
                 )
                 ctx.telegram.sendPhoto(
@@ -311,6 +318,12 @@ module.exports = {
     },
     
     declinedpostfor (ctx, data) {
+        ctx.editMessageText(
+            `Client notified ❗ \n\nYou can safely leave this chat.`,
+            {
+                parse_mode: "HTML"
+            }
+        )
         ctx.telegram.sendMessage(data[5], `@${data[0]} - creator of @${data[3]} channel declined your post. Consider contacting him/her for details.`)
     },
 
