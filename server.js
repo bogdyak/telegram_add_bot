@@ -86,8 +86,13 @@ bot.start(async (ctx) => {
         })
     }
     catch (e) {
-        if (e.message != "user_exists")
+        if (e.message == "user_exists")
+            messages.Welcome().then(data => {
+                ctx.replyWithHTML(data.text, { reply_markup:markup_api.homePage })
+            })
+        else
             debug.notifyAndReply(ctx, e)
+
     }
     if (ctx.startPayload) {
         if (ctx.startPayload.indexOf("@") != -1)
