@@ -457,11 +457,9 @@ ${text}
         return new Promise(async (resolve, reject) => {
             try {
                 const profile = await db_api.get_user(id)
-
                 resolve({
-                    text: `Please send any Minter currencies to address\n\n\<code>${profile.settings.wallet.public}</code>`,
+                    text: `Please send any Minter currencies to address`,
                     extra: profile.settings.wallet.public,
-                    reply_markup: markup_api.show_channels.reply_markup
                 })
             }
             catch (e) {

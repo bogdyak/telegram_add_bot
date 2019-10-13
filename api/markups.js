@@ -119,7 +119,7 @@ module.exports = {
                 row.push(col)
         })
 
-        row.push([{ text:'➕ Add new', callback_data: `add/post/options/${channelName}` }])
+        row.push([{ text:'➕ Add new', callback_data: `add/${channelName}/post/options/` }])
         row.push([{ text:'↩️ Back', callback_data: `edit/channel` }])
 
         return Extra.markup(

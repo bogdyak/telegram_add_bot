@@ -131,7 +131,13 @@ module.exports = {
         messages.Deposit(id)
         .then(data => {
             editMessageReply(ctx, data)
-            ctx.telegram.sendPhoto(id, `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${data.extra}`)
+            ctx.telegram.sendPhoto(
+                id,
+                `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${data.extra}`,
+                {
+                    caption: data.extra
+                }
+            )
         })
         .catch(e => debug.notifyAndReply(ctx, e))
     },
@@ -269,10 +275,16 @@ module.exports = {
             if (balance < context.amount) {
                 ctx.telegram.sendMessage(
                     data[5],
-                    `Please send <b>${context.amount} BIP</b> to \n<code>${wallet_to_watch.MINTER.public}</code>`,
+                    `⚠️ Not enough funds on internal wallet ⚠️ \n\nPlease send <b>${context.amount} BIP</b> to \n<code></code>`,
                     { parse_mode: "HTML" }
                 )
-                ctx.telegram.sendPhoto(data[5], `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`)
+                ctx.telegram.sendPhoto(
+                    data[5],
+                    `https://chart.googleapis.com/chart?cht=qr&chs=200x200&choe=utf-8&chl=${wallet_to_watch.MINTER.public}`,
+                    {
+                        caption: wallet_to_watch.MINTER.public
+                    }
+                )
             }
             else {
                 const to      = wallet_to_watch.MINTER.public
