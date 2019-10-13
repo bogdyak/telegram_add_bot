@@ -230,7 +230,7 @@ Example: <code>@channelname</code> or <code>channelname</code>
                     const channel = profile.settings.channels[i]
                     html += `------------------\n`
                     html += `<b>Channel id: </b> @${channel.name} \n`
-                    html += `<b>Status: </b> ${(channel.status) ? 'enabled' : 'disabled'} ${(channel.status) ? '✅' : '❌'}\n`
+                    html += `<b>Status: </b> ${(channel.status) ? 'ad post is active' : 'no active ad posts'} ${(channel.status) ? '✅' : '❌'}\n`
                 }
 
                 resolve({
