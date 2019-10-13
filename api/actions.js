@@ -231,7 +231,10 @@ module.exports = {
     async approvedpostfor (ctx, data, sessions) {
         const from_id     = ctx.update.callback_query.from.id
         try {
-            const context   = sessions[from_id].context
+            /**
+             * update this stuff, make it through db
+             */
+            const context   = sessions[`${from_id}_${data[3]}`].context
             const profile   = context.profile
             const wallet    = profile.profile.settings.wallet.public
             const text      = context.text
@@ -260,6 +263,20 @@ module.exports = {
             const updated_profile = await db_api.get_user(profile.profile.id)
             const requester = await db_api.get_user(requester_id)
             const balance = await minter.getBalance(requester.settings.wallet.public, 3)
+
+            console.log({
+                order_id: temp_tx_result.id,
+                temp_wallet: wallet_to_watch.MINTER.public,
+                amount: context.amount,
+                balance: balance,
+                final_wallet: wallet,
+                text: text,
+                duration: context.duration,
+                admin: from_id,
+                client: data[5],
+                channel: data[3],
+                hash: crypto.randomBytes(8).toString('hex')
+            })
 
             minter_requester.send({ type:"start_watching", data: {
                 order_id: temp_tx_result.id,
@@ -313,6 +330,7 @@ module.exports = {
             }
         }
         catch (e) {
+            console.log(e)
             debug.notifyAndReply(ctx, e)
         }
     },

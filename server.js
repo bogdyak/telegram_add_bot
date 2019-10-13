@@ -436,7 +436,7 @@ bot.on('message', async (ctx) => {
 
             case 'set_post_option':
                 const channelName = sessions[from_id].context_1
-                if (text.split(" ").length == 3) {
+                if (/([0-9]{1,10}) ([Aa-zZ]{1,10}) ([0-9]{1,10})/.test(text)) {
                     await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
                     ctx.reply("Post details successfully saved, going back ...")
                     sessions_check_update(from_id, {})
@@ -453,7 +453,7 @@ bot.on('message', async (ctx) => {
                 }
                 else {
                     ctx.replyWithHTML(
-                        `Please check that you sending Post details correctly.`,
+                        `Please check that you sending post details correctly.\n\nExample of correct schema:\n1 day 1000`,
                         {
                             reply_markup: markup_api.edit_channel_back(channelName).reply_markup,
                             parse_mode: "HTML"
@@ -508,11 +508,13 @@ bot.on('message', async (ctx) => {
 
             switch (context.type) {
                 case "option_selected" :
-                    const lang      = profile.config.channel_language
-                    const chat_name = context.profile.channel.name
-                    let creator_id = ""
-                    
-                    if (text.localeCompare(lang) == 1) {
+                    try {
+                        const lang      = profile.config.channel_language
+                        const chat_name = context.profile.channel.name
+                        let creator_id = ""
+                        
+                        // update it to ignore hashtags, links, etc
+                        // if (text.localeCompare(lang) == 1) {
                         const admins     = await ctx.telegram.getChatAdministrators("@"+chat_name)
                         const creator    = await channel_api.getChatCreatorUsername(admins)
                         creator_id       = await channel_api.getChatCreator(admins)
@@ -523,13 +525,13 @@ bot.on('message', async (ctx) => {
                             requester: ctx.update.message.from.username,
                             requester_id: from_id
                         })
-        
+            
                         /**
                          * I have to localy sync client and admin sessions
                          */
                         sessions[from_id].context.text = text
-                        sessions_check_update(creator_id, sessions[from_id].context)
-                        
+                        sessions_check_update(`${creator_id}_${chat_name}`, sessions[from_id].context)
+                            
                         ctx.telegram.sendMessage(
                             creator_id,
                             msg_data.text,
@@ -544,16 +546,20 @@ bot.on('message', async (ctx) => {
                             { parse_mode: "HTML" }
                         )
                     }
-                    else {
-                        ctx.telegram.sendMessage(
-                            from_id,
-                            `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
-                            { parse_mode: "HTML" }
-                        )
-                        
-                        sessions_check_update(from_id, {})
-                        sessions_check_update(creator_id, {})
+                    catch (e) {
+                        ctx.telegram.sendMessage(env.CREATOR, JSON.stringify(e))
                     }
+                /*}
+                else {
+                    ctx.telegram.sendMessage(
+                        from_id,
+                        `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
+                        { parse_mode: "HTML" }
+                    )
+                    
+                    sessions_check_update(from_id, {})
+                    sessions_check_update(creator_id, {})
+                }*/
                 break
                 
                 case "withdraw" :
