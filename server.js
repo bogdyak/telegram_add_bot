@@ -82,17 +82,17 @@ bot.start(async (ctx) => {
     try {
         await db_api.new_user(ctx.message.from)
         messages.Welcome().then(data => {
-            ctx.replyWithHTML(data.text, { reply_markup:markup_api.homePage })
+            ctx.replyWithHTML(data.text, { reply_markup:markup_api.homePage.reply_markup })
         })
     }
     catch (e) {
-        if (e.message == "user_exists")
-            messages.Welcome().then(data => {
-                ctx.replyWithHTML(data.text, { reply_markup:markup_api.homePage })
-            })
-        else
+        if (e.message != "user_exists")
             debug.notifyAndReply(ctx, e)
-
+        
+        else
+            messages.Welcome().then(data => {
+                ctx.replyWithHTML(`Hello, ${ctx.message.from.first_name}`, { reply_markup:markup_api.homePage.reply_markup })
+            })
     }
     if (ctx.startPayload) {
         if (ctx.startPayload.indexOf("@") != -1)
@@ -186,8 +186,6 @@ bot
 .action(/(^[A-Za-z0-9\[\]()*\-+/%]+)/, async (ctx) => {
     const data    = ctx.update.callback_query.data.split("/")
     const from_id = ctx.update.callback_query.from.id
-
-    console.log(data)
 
     let command = "";
     

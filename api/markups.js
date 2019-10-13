@@ -4,14 +4,13 @@ const lang_logo = require('./language-logo')
 const db_api    = require('./mongo')
 
 module.exports = {
-    homePage: Markup
-        .keyboard([
+    homePage: Extra.markup(
+        Markup.keyboard([
             ['👨‍💻 Profile', '📢 Buy Ad'],
             ['☸ Settings', 'ℹ️ Help'],
         ])
-        .oneTime()
         .resize()
-        .extra(),
+    ),
         
     profile (address) {
         return Extra.markup(
