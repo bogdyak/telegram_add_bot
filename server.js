@@ -10,7 +10,6 @@ const env = require('./env')
 const Telegraf = require('telegraf')
 const session  = require('telegraf/session')
 const cote     = require('cote')
-const crypto   = require('crypto')
 const Minter   = require('@aloborio/blockchain/dist/index')
 
 
@@ -87,18 +86,43 @@ bot.start(async (ctx) => {
         })
     }
     catch (e) {
-        debug.notifyAndReply(ctx, e)
-
-        try {
-            if (e.message == "user_exists")
-                ctx.reply('Welcome back', markup_api.homePage)
-    
-            else 
-                ctx.reply('Oops, there is error accured. Please report to @b_sizov')
-        }
-        catch (e) {
+        if (e.message != "user_exists")
             debug.notifyAndReply(ctx, e)
-        }
+    }
+    if (ctx.startPayload) {
+        if (ctx.startPayload.indexOf("@") != -1)
+            ctx.startPayload = ctx.startPayload.split("@")[1]
+
+        const from_id = ctx.message.from.id
+        sessions_check_update(from_id, {})
+
+        db_api.findChannel(ctx.startPayload)
+        .then(res => {
+            sessions_check_update(from_id, res)
+            if (!res.channel.status) {
+                ctx.replyWithHTML(
+                    `Please choose duration of post`,
+                    {
+                        reply_markup: markup_api.get_post_options(ctx.startPayload, res.config.post_options).reply_markup,
+                        parse_mode: "HTML"
+                    }
+                )
+            }
+            else {
+                ctx.replyWithHTML(
+                    `@${ctx.startPayload} channel is already busy with another post.\n\nYou can buy after ${res.channel.post.end_day}`
+                )
+            }
+        })
+        .catch(e => {
+            if (e.status == "not_connected") {
+                ctx.replyWithHTML(
+                    `@${ctx.startPayload} channel not connected. You can ask owner of this channel to connect`
+                )
+            }
+            else 
+                debug.notifyAndReply(ctx, e)
+        })
     }
 })
 
@@ -114,6 +138,7 @@ bot
 .action('back/to/help', (ctx) => actions.back_to_help(ctx))
 .action('help/add/channel', (ctx) => actions.help_add_channel(ctx))
 .action('help/withdraw', (ctx) => actions.help_withdraw(ctx))
+.action('help/pricelist', (ctx) => actions.help_addedit_pricelist(ctx))
 .action('show/add/channel/instructions', (ctx) => actions.show_add_channel_instructions(ctx))
 .action('back/to/before/add/channel', (ctx) => {
     sessions_check_update(ctx.update.callback_query.from.id, {})
@@ -157,6 +182,8 @@ bot
     const data    = ctx.update.callback_query.data.split("/")
     const from_id = ctx.update.callback_query.from.id
 
+    console.log(data)
+
     let command = "";
     
     (command == "")
@@ -176,7 +203,7 @@ bot
         : null;
     
     (command == "")
-        ? ( data[0] + data[1] + data[2] == "addpostoption" ) ? command = "addpostoption" : ""
+        ? ( data[0] + data[2] + data[3] == "addpostoptions" ) ? command = "addpostoptions" : ""
         : null;
     
     (command == "")
@@ -194,6 +221,18 @@ bot
     (command == "")
         ? ( data[0] + data[1] == "withdrawcurrency" ) ? command = "withdrawcurrency" : "" 
         : null;
+
+    (command == "")
+        ? ( data[0] + data[1] == "editpost" ) ? command = "editpost" : "" 
+        : null;
+
+    (command == "")
+        ? ( data[0] == "editpricelistoption" ) ? command = "editpricelistoption" : "" 
+        : null;
+
+    (command == "")
+        ? ( data[0] == "deletepricelistoption" ) ? command = "deletepricelistoption" : "" 
+        : null;
  
     switch (command) {
         case "editchannel" : actions.editchannel(ctx, data, sessions)
@@ -205,12 +244,15 @@ bot
         case "setchannellanguage" : actions.setchannellanguage(ctx, data, sessions)
         break
 
-        case "editpostoptions" : actions.editpostoptions(ctx, data, sessions)
+        case "editpost" : actions.editpostoptions(ctx, data, sessions)
         break
 
-        case "addpostoption" :
+        case "editpostoptions": actions.editpostoptions(ctx, data, sessions)
+        break
+
+        case "addpostoptions" :
             sessions_check_update(from_id, `set_post_option`)
-            actions.addpostoption(ctx, data, sessions)
+            actions.addpostoptions(ctx, data, sessions)
         break
 
         case "chooseadvoption" :
@@ -265,6 +307,12 @@ bot
             })
 
             actions.withdrawcurrency(ctx, currency_to_withdraw)
+        break
+
+        case "deletepricelistoption" : actions.delete_price_list_option(ctx, data, sessions)
+        break
+
+        case "editpricelistoption" : actions.edit_price_list_option(ctx, data, sessions)
         break
     }
 })
@@ -396,7 +444,7 @@ bot.on('message', async (ctx) => {
                                 reply_markup: data.reply_markup,
                                 parse_mode: "HTML"
                             })  
-                        }, 3000)
+                        }, 1000)
                     })
                     .catch(e => debug.notifyAndReply(ctx, e))
                 }
@@ -547,7 +595,7 @@ bot.on('message', async (ctx) => {
 
 transaction_responder.on('transaction_submited', async (msg) => {
     try {
-        msg.data.text += `\n\n<b>Posted with automated bot for advertising in channels - @${me}</b>`
+        msg.data.text += `\n\n<a href="https://t.me/${me.replace("@", "")}?start=${msg.data.channel}">CLICK TO POST AD IN THIS CHANNEL</a>`
         const message_result = await bot.telegram.sendMessage("@"+msg.data.channel, msg.data.text, {
             parse_mode: "HTML"
         })
@@ -566,7 +614,7 @@ transaction_responder.on('transaction_submited', async (msg) => {
             `<b>Your advertisment post in @${msg.data.channel} been successfully posted</b>`,
             { parse_mode: "HTML" }
         )
-        await db_api.changeChannelStatus(msg.data.channel)
+        await db_api.changeChannelStatus(msg.data.channel, msg.data.duration)
 
         pin_requester.send({ type:'start_countdown', data:{
             period: msg.data.duration.split("_")[0],

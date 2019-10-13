@@ -134,6 +134,24 @@ I am in beta version, but doing my best to be good friend for you. If you have i
         })
     },
 
+    helpAddEditToPriceList () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `
+<b>How to add post option to price list</b>
+
+1) Go to ☸ Settings
+2) Go to ✏️ Edit channel
+3) Click on the channel which you want to edit
+4) Go to ➕ Add new to add new
+4.1) Click on the existing price list option to edit or delete
+5) Follow the instructions from message
+                `,
+                reply_markup: markup_api.back_to_help.reply_markup
+            })
+        })
+    },
+
     BeforeAddChannel () {
         return new Promise(async (resolve, reject) => {
             resolve({
@@ -273,7 +291,8 @@ Example: <code>@channelname</code> or <code>channelname</code>
                     const configs = await db_api.getChannelConfigurations(focus_channel.configuration)
                     
                     html = `<b>Channel configurations</b>\n\n<b>Channel language: </b>${configs.channel_language} ${lang_logo[configs.channel_language]}\n`
-                    
+                    html += `Channel language define the language of ad post that will be accepted. For example: in English channel you can post only English ad post.\n\n`
+
                     if (configs.post_options.length) {
                         html += `<b>Price list</b> displayed below\n`
                         markup = markup_api.show_channel_conf_listOfPosts(focus_channel.name, configs.post_options).reply_markup
@@ -315,20 +334,21 @@ Example: <code>@channelname</code> or <code>channelname</code>
         })
     },
 
-    EditChannelPostOptions (id, name) {
+    EditChannelPostOptions (id, name, data) {
         return new Promise(async (resolve, reject) => {
             try {
-                const channel        = await db_api.getChannel(id, name)
-                const configurations = await db_api.getChannelConfigurations(channel.configuration)
-
                 resolve({
-                    text: `Please select option to edit or click <code>Add new</code> to create new.`,
-                    reply_markup: markup_api.show_channel_conf_listOfPosts(name, configurations.post_options).reply_markup
+                    text: `
+Please choose what you want to do with this price list option
+
+<b>${data[3]} ${data[4]} ${data[5]}</b>
+`,
+                    reply_markup: markup_api.change_delete_pricelist_option(name, data).reply_markup
                 })
             }
             catch (e) {
                 console.log(e)
-                reject(e)
+                reject({ text:e })
             }
         })
     },
@@ -451,6 +471,14 @@ ${text}
                     reply_markup: markup_api.show_channels.reply_markup
                 })
             }
+        })
+    },
+
+    PriceListOptionDeleted () {
+        return new Promise(async (resolve, reject) => {
+            resolve({
+                text: `Price list option successfully deleted`,
+            })
         })
     }
 } 

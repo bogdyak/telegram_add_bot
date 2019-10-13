@@ -11,7 +11,7 @@ const profile_schema      = require('../mongoose/profile-schema').model
 const settings_schema     = require('../mongoose/settings-schema').model
 const channel_conf_schema = require('../mongoose/channel-settings-schema').model
 const channel_object      = require('../mongoose/channel-schema').model
-const util_api            = require('../api/util')
+const util_api            = require('./util')
 const minter              = new Minter.default()
 
 
@@ -212,6 +212,33 @@ module.exports = {
         })
     },
 
+    delete_price_list_option (id, channelName, duration, numeration, price) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const channel = await this.getChannel(id, channelName)
+                const config = await channel_conf_schema.findById(channel.configuration)
+                
+                const l = config.post_options.length
+                for (let i=0; i < l; i++) {
+                    const option = config.post_options[i]
+                    if (option.duration == duration && option.numeration == numeration && option.price == price) {
+                        config.post_options.splice(i, 1)
+                        i = l
+                    }
+                }
+                
+                config.markModified('post_options')
+                await config.save()
+
+                resolve(true)
+            }
+            catch (e) {
+                console.log(e)
+                reject(e)
+            }
+        })
+    },
+
     findChannel (name) {
         return new Promise(async (resolve, reject) => {
             try {
@@ -272,7 +299,7 @@ module.exports = {
         })
     },
 
-    changeChannelStatus (name) {
+    changeChannelStatus (name, duration) {
         return new Promise(async (resolve, reject) => {
             try {
                 let result = await profile_schema.find({
@@ -289,7 +316,15 @@ module.exports = {
                         i = result.settings.channels.length
                     }
                 }
+                
+                duration = duration.split('_')[0]
+                const numeration = util_api.definedNumeration(duration.split('_')[1])
+                const millsceconds_to_adjust = util_api.numerationInMilseconds(duration, numeration)
+
                 focus_channel.status = (focus_channel.status) ? false : true
+                focus_channel.post.start_day = new Date()
+                focus_channel.post.end_day = new Date(new Date().getTime() + millsceconds_to_adjust)
+
                 result.markModified('settings')
                 await result.save()
                 resolve(true)

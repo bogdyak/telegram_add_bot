@@ -141,10 +141,16 @@ module.exports = {
         .then(data => editMessageReply(ctx, data))
         .catch(e => debug.notifyAndReply(ctx, e))
     },
+
+    help_addedit_pricelist (ctx) {
+        messages.helpAddEditToPriceList(ctx.update.callback_query.from.id)
+        .then(data => editMessageReply(ctx, data))
+        .catch(e => debug.notifyAndReply(ctx, e))
+    },
     
     editchannel (ctx, data) {
         const from_id     = ctx.update.callback_query.from.id
-        const channelName = data[2]   
+        const channelName = data[2]
         messages.EditChannel(from_id, channelName)
         .then(_data => editMessageReply(ctx, _data))
         .catch(e => debug.notifyAndReply(ctx, e))
@@ -181,16 +187,16 @@ module.exports = {
     
     editpostoptions (ctx, data) {
         const from_id     = ctx.update.callback_query.from.id
-        const channelName = data[1]
+        const channelName = data[2]
 
-        messages.EditChannelPostOptions(from_id, channelName)
+        messages.EditChannelPostOptions(from_id, channelName, data)
         .then(_data => editMessageReply(ctx, _data))
         .catch(e => debug.notifyAndReply(ctx, e))
     },
     
-    addpostoption (ctx, data, sessions) {
+    addpostoptions (ctx, data, sessions) {
         const from_id     = ctx.update.callback_query.from.id
-        const channelName = data[3]
+        const channelName = data[1]
 
         messages.AddNewChannelOption(from_id, channelName)
         .then(data => {
@@ -309,5 +315,27 @@ module.exports = {
         catch (e) {
             debug.notifyAndReply(ctx, e)
         }
+    },
+
+    async delete_price_list_option (ctx, _data, sessions) {
+        const channelName = _data[1]
+        const id = ctx.update.callback_query.from.id
+
+        const pots_options = await db_api.delete_price_list_option(id, channelName, _data[2], _data[3], _data[4])
+
+        messages.PriceListOptionDeleted(channelName, pots_options)
+        .then(data => {
+            editMessageReply(ctx, data)
+            setTimeout(() => {
+                messages.EditChannel(id, channelName)
+                .then(_data => editMessageReply(ctx, _data))
+                .catch(e => debug.notifyAndReply(ctx, e))
+            }, 1500)
+        })
+        .catch(e => debug.notifyAndReply(ctx, e))
+    },
+
+    edit_price_list_option (ctx, data, sessions) {
+
     }
 }

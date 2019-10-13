@@ -94,7 +94,7 @@ module.exports = {
         return Extra.markup(
             Markup.inlineKeyboard([
                 [{ text:'✏️ Edit channel language', callback_data:`edit/${channelName}/channel/language` }],
-                [{ text:'➕ Add post option', callback_data:`edit/${channelName}/post/options` }],
+                [{ text:'➕ Add post option', callback_data:`add/${channelName}/post/options` }],
                 [{ text:'↩️ Back', callback_data:`edit/channel` }]
             ])
         )
@@ -105,21 +105,21 @@ module.exports = {
         let col = []
         list.map((el, index) => {
             if (!index) 
-                col.push({ text:`${el.duration} ${el.numeration} ${el.price} BIP`, callback_data:`edit/post/${el.duration}/${el.numeration}/${el.price}` })
+                col.push({ text:`${el.duration} ${el.numeration} ${el.price} BIP`, callback_data:`edit/post/${channelName}/${el.duration}/${el.numeration}/${el.price}` })
 
             else if (index % 3 == 0) {
-                col.push({ text:`${el.duration} ${el.numeration} ${el.price} BIP`, callback_data:`edit/post/${el.duration}/${el.numeration}/${el.price}` })
+                col.push({ text:`${el.duration} ${el.numeration} ${el.price} BIP`, callback_data:`edit/post/${channelName}/${el.duration}/${el.numeration}/${el.price}` })
                 row.push(col)
                 col = []
             }
             else
-                col.push({ text:`${el.duration} ${el.numeration} ${el.price} BIP`, callback_data:`edit/post/${el.duration}/${el.numeration}/${el.price}` })
+                col.push({ text:`${el.duration} ${el.numeration} ${el.price} BIP`, callback_data:`edit/post/${channelName}/${el.duration}/${el.numeration}/${el.price}` })
 
             if (index == list.length - 1 && col.length)
                 row.push(col)
         })
 
-        row.push([{ text:'➕ Add new', callback_data: `add/post/option/${channelName}` }])
+        row.push([{ text:'➕ Add new', callback_data: `add/post/options/${channelName}` }])
         row.push([{ text:'↩️ Back', callback_data: `edit/channel` }])
 
         return Extra.markup(
@@ -157,7 +157,7 @@ module.exports = {
 
     edit_channel_back (name) {
         return Extra.markup(
-            Markup.inlineKeyboard([{ text:'↩️ Back', callback_data: `edit/${name}/post/options` }])
+            Markup.inlineKeyboard([{ text:'↩️ Back', callback_data: `edit/channel/${name}` }])
         )
     },
 
@@ -169,7 +169,7 @@ module.exports = {
             }]
         })
 
-        array.push([{ text:'↩️ Back', callback_data: `back/by/ad` }])
+        array.push([{ text:'↩️ Back', callback_data: `back/buy/ad` }])
 
         return Extra.markup(
             Markup.inlineKeyboard(array)
@@ -194,6 +194,7 @@ module.exports = {
     help: Extra.markup(
         Markup.inlineKeyboard([
             [{ text:'Help add channel', callback_data:`help/add/channel` }],
+            [{ text:'Add / Edit price list options', callback_data:`help/pricelist` }],
             [{ text:'Withdrawing funds', callback_data:`help/withdraw` }]
         ])
     ),
@@ -214,7 +215,6 @@ module.exports = {
 
     choose_withdraw_coin (balance) {
         let array = balance.map((el) => {
-            console.log(el)
             if (el.coin != "BIP") {
                 if (el.sellPrice > 0.01)
                     return [{
@@ -234,6 +234,26 @@ module.exports = {
 
         return Extra.markup(
             Markup.inlineKeyboard(array)
+        )
+    },
+
+    change_delete_pricelist_option (channelName, data) {
+        return Extra.markup(
+            Markup.inlineKeyboard([
+                [
+                    // {
+                //     text:'✏️ Edit',
+                //     callback_data:`editpricelistoption/${channelName}/${data[3]}/${data[4]}/${data[5]}`
+                // },
+                {
+                    text:'❌ Delete',
+                    callback_data:`deletepricelistoption/${channelName}/${data[3]}/${data[4]}/${data[5]}`
+                }],
+                [{
+                    text:'↩️ Back',
+                    callback_data: `edit/channel/${channelName}`
+                }]
+            ])
         )
     }
 }

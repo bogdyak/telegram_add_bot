@@ -26,4 +26,40 @@ module.exports = {
 
         return result
     },
+
+    numerationInMilseconds (x, numeration) {
+        let result = ""
+
+        switch (numeration) {
+            case 'sec' :
+                result = x * 1000
+                break
+
+            case 'min' :
+                result = x * 60000
+                break
+
+            case 'hour' :
+                result = x * 3600000
+                break
+
+            case 'day' :
+                result = x * 86400000
+                break
+
+            case 'week' :
+                result = x * 604800000
+                break
+
+            case 'month' :
+                result = x * 2592000000
+                break
+
+            case 'year' :
+                result = x * 31536000000
+                break
+        }
+
+        return result
+    }
 }
