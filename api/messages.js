@@ -49,9 +49,9 @@ I am in beta version, but doing my best to be good friend for you. If you have i
                     }
                 }
 
-                request.get('https://api.bip.dev/api/price', (err, res, body) => {
-                    body = JSON.parse(body)
-                    const price = body.data.price / 10000
+//                request.get('https://api.bip.dev/api/price', (err, res, body) => {
+//                    body = JSON.parse(body)
+                    const price = 0.03
                     const dollar_worth = sum * price
 
                     resolve({
@@ -67,7 +67,7 @@ I am in beta version, but doing my best to be good friend for you. If you have i
                         `,
                         reply_markup: markup_api.profile(profile.settings.wallet.public).reply_markup
                     })
-                })
+  //              })
             }
             catch (e) {
                 console.log(e)
