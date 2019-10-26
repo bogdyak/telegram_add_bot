@@ -397,14 +397,14 @@ bot.on('message', async (ctx) => {
          */
         switch (context) {
             case 'add_channel':
-                // if user not specified '@' at channel name need to prepend it
-                if (text.indexOf("@") == -1)
+                try {
+                    // if user not specified '@' at channel name need to prepend it
+                    if (text.indexOf("@") == -1)
                     text = "@" + text
 
-                sessions_check_update(from_id, {})
+                    sessions_check_update(from_id, {})
 
-                db_api.check_channel_exists(from_id, text)
-                .then(async () => {
+                    await db_api.check_channel_exists(from_id, text)
 
                     const res = await bot.telegram.sendMessage(text, 'david_advertise_channel_ping', { disable_notification:true })
 
@@ -420,8 +420,8 @@ bot.on('message', async (ctx) => {
                             parse_mode: "HTML"
                         }
                     )
-                })
-                .catch(e => {
+                }
+                catch (e) {
                     if (e.message == 'error_saving_channel') 
                         ctx.reply(`There is error accured while connecting @${res.chat.username} to your profile`)
                     
@@ -430,47 +430,50 @@ bot.on('message', async (ctx) => {
 
                     else
                         debug.notifyAndReply(ctx, e)
-                })
-                    
+                }
             break
 
             case 'set_post_option':
-                const channelName = sessions[from_id].context_1
-                if (/([0-9]{1,10}) ([Aa-zZ]{1,10}) ([0-9]{1,10})/.test(text)) {
-                    await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
-                    ctx.reply("Post details successfully saved, going back ...")
-                    sessions_check_update(from_id, {})
-                    
-                    messages.EditChannel(from_id, channelName).then(data => {
+                try {
+                    const channelName = sessions[from_id].context_1
+                    if (/([0-9]{1,10}) ([Aa-zZ]{1,10}) ([0-9]{1,10})/.test(text)) {
+                        await db_api.updateChannelConfiguation(from_id, channelName, 'post_options', text.split(" "))
+                        ctx.reply("Post details successfully saved, going back ...")
+                        sessions_check_update(from_id, {})
+                        
+                        const data = await messages.EditChannel(from_id, channelName)
+
                         setTimeout(() => {
                             ctx.replyWithHTML(data.text, {
                                 reply_markup: data.reply_markup,
                                 parse_mode: "HTML"
                             })  
                         }, 1000)
-                    })
-                    .catch(e => debug.notifyAndReply(ctx, e))
+                    }
+                    else {
+                        ctx.replyWithHTML(
+                            `Please check that you sending post details correctly.\n\nExample of correct schema:\n1 day 1000`,
+                            {
+                                reply_markup: markup_api.edit_channel_back(channelName).reply_markup,
+                                parse_mode: "HTML"
+                            }
+                        )
+                    }
                 }
-                else {
-                    ctx.replyWithHTML(
-                        `Please check that you sending post details correctly.\n\nExample of correct schema:\n1 day 1000`,
-                        {
-                            reply_markup: markup_api.edit_channel_back(channelName).reply_markup,
-                            parse_mode: "HTML"
-                        }
-                    )
+                catch (e) {
+                    debug.notifyAndReply(ctx, e)
                 }
-            
             break                
             
             case 'buy_ad':
-                if (text.indexOf("@") != -1)
-                    text = text.split("@")[1]
+                try {
+                    if (text.indexOf("@") != -1)
+                        text = text.split("@")[1]
 
-                sessions_check_update(from_id, {})
+                    sessions_check_update(from_id, {})
 
-                db_api.findChannel(text)
-                .then(res => {
+                    await db_api.findChannel(text)
+
                     sessions_check_update(from_id, res)
                     if (!res.channel.status) {
                         ctx.replyWithHTML(
@@ -486,8 +489,8 @@ bot.on('message', async (ctx) => {
                             `@${text} channel is already busy with another post.\n\nYou can buy after ${res.channel.post.end_day}`
                         )
                     }
-                })
-                .catch(e => {
+                }
+                catch (e) {
                     if (e.status == "not_connected") {
                         ctx.replyWithHTML(
                             `@${text} channel not connected. You can ask owner of this channel to connect`
@@ -495,8 +498,7 @@ bot.on('message', async (ctx) => {
                     }
                     else 
                         debug.notifyAndReply(ctx, e)
-                })
-
+                }
             break
         }
 
@@ -549,17 +551,6 @@ bot.on('message', async (ctx) => {
                     catch (e) {
                         ctx.telegram.sendMessage(env.CREATOR, JSON.stringify(e))
                     }
-                /*}
-                else {
-                    ctx.telegram.sendMessage(
-                        from_id,
-                        `Sorry. In @${chat_name} channel you can post only ${lang} ${lang_logo[lang]} language content`,
-                        { parse_mode: "HTML" }
-                    )
-                    
-                    sessions_check_update(from_id, {})
-                    sessions_check_update(creator_id, {})
-                }*/
                 break
                 
                 case "withdraw" :
